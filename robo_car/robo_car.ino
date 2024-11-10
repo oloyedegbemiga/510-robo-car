@@ -2,6 +2,11 @@
 #define MOTOR_DIR1 4
 #define MOTOR_DIR2 10
 
+
+// Meters
+#define HALF_WHEEL_BASE_B 0.13
+#define WHEEL_RADIUS .04
+
 hw_timer_t * timer = NULL;
 bool ret = false;
 bool ledsig = false;
@@ -15,9 +20,15 @@ volatile long ticksPerInterval[4] = {0, 0, 0, 0};
 // volatile long positionCounts[4] = {0, 0, 0, 0};
 volatile long motorDir[4] = {1, 1, 1, 1};
 
+// Rad/seconds
+volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
+
 int CPR = 12;
 float rotPerTick = 360.0 / CPR;
 const int timer_interval = 100;
+
+// after 
+int initializeControl = 0;
 
 
 void IRAM_ATTR encoderISR0() { ticksPerInterval[0] += motorDir[0];}
@@ -56,6 +67,45 @@ void moveMotor(int motor_pin, int dir){
 
 }
 
+void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
+  // we want to return an array that has each motor velocity
+
+  float ang_v_left = (lin_vel - HALF_WHEEL_BASE_B * ang_vel) / WHEEL_RADIUS;
+  float ang_v_right = (lin_vel + HALF_WHEEL_BASE_B * ang_vel) / WHEEL_RADIUS;
+
+  motorVelSetpoint[0] = ang_v_right;
+  motorVelSetpoint[1] = ang_v_right;
+  motorVelSetpoint[2] = ang_v_left;
+  motorVelSetpoint[3] = ang_v_left;
+}
+
+void motorControl() {
+
+  static unsigned long current_timestamp = millis();
+  if (initializeControl == 0) {
+    static unsigned long previous_timestamp = current_timestamp;
+    initializeControl = 1;
+    return;
+  }
+
+  unsigned long time_diff = current_timestamp - previous_timestamp;
+
+  int u[4];
+  float current_wheel_vel[4];
+  static int ticks_between_control[4];
+  
+  for (int i = 0; i < 4; i++) {
+    ticks_between_control[i] = ticksPerInterval[i] - ticks_between_control[i];
+    int8_t tick = ticks_between_control[i] / 12;
+
+
+  }
+
+  previous_timestamp = current_timestamp;
+
+}
+
+
 void setup() {
   // put your setup code here, to run once:
 
@@ -64,8 +114,6 @@ void setup() {
   timer = timerBegin(1000000); // set freq to 1us
   timerAttachInterrupt(timer, &onTimer);
   timerAlarm(timer, 100000, true, 0); // 100000 ticks per cycle
-
-
 
   // setup encoder pins and interrupt
   for (int i = 0; i < 4; i++){
@@ -82,5 +130,12 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  // Wifi Servr code to get Velocity command:
+
+  float lin_vel = 1.0;
+  float ang_vel = 0.0;
+
+  calcMotorVelSetpoint(lin_vel, ang_vel);
+  motorControl();
 
 }
