@@ -1,4 +1,6 @@
 #include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
 #include "index.h"
 #include "html510.h"
 // HTML510Server h(80);
@@ -17,6 +19,22 @@
 #define PI 3.14159265358979323846
 
 #define KP 8
+//*******WIFI***********//
+// WiFi Credentials
+const char *ssid = "Robocar";
+const char *password = "12345678";
+// Web server on port 80
+WebServer server(80);
+
+// Motor control values array
+float motorControl[3] = {0, 0.0, 0}; 
+
+
+//*******WIFI***********//
+
+
+
+
 
 hw_timer_t * timer = NULL;
 bool ret = false;
@@ -52,17 +70,7 @@ void IRAM_ATTR encoderISR2() { ticksPerInterval[2] += motorDir[2];}
 void IRAM_ATTR encoderISR3() { ticksPerInterval[3] += motorDir[3];}
 
 
-void IRAM_ATTR onTimer(){
-  // Serial.println(ticksPerInterval[0]);
-  // for (int i = 0; i < 4; i++){
-  //   long ticks = ticksPerInterval[i];
-  //   ticksPerInterval[i] = 0;
-  //   float rpm = (ticks / (float) CPR) * (60000.0 / timer_interval);
-  //   // float motorPosDeg = positionCounts[i] * rotPerTick;
-  //   float motorPosDeg = ticks * rotPerTick;
-  // }
 
-}
 
 void moveMotor(int motor_pin, int dir){
 
@@ -101,7 +109,7 @@ void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
 
 }
 
-void motorControl() {
+void controlMotor() {
   
   static unsigned long previous_timestamp;
   unsigned long current_timestamp = millis();
@@ -119,23 +127,23 @@ void motorControl() {
   static int ticks_between_control[4];
   Serial.println("Start");
   for (int i = 0; i < 4; i++) {
-    if (i == 0) {
-      Serial.println("Ticks:");
-      Serial.println(ticksPerInterval[i]);
+    // if (i == 0) {
+    //   Serial.println("Ticks:");
+    //   Serial.println(ticksPerInterval[i]);
   
-      Serial.println(prev_tick[i]);
-    }
+    //   Serial.println(prev_tick[i]);
+    // }
 
     float tick = ticksPerInterval[i] - prev_tick[i];
     // Serial.println(tick);
-     if (i == 0){
-      Serial.println(tick);
-    }
+    // if (i == 0){
+    //   Serial.println(tick);
+    // }
 
     tick = tick / (34.0);
-    if (i == 0){
-      Serial.println(tick);
-    }
+    // if (i == 0){
+    //   Serial.println(tick);
+    // }
     // Serial.println(tick);
     // each tick is 30 degrees
     float rad = tick * 30 * PI / 180;
@@ -145,12 +153,12 @@ void motorControl() {
 
     float ang_vel = rad / (time_diff/1000.0);
     if (i == 0){
-      Serial.println("Ang Vel Calc");
-      Serial.println(tick);
-      Serial.println(rad);
-      Serial.println(time_diff);
+    //   Serial.println("Ang Vel Calc");
+    //   Serial.println(tick);
+    //   Serial.println(rad);
+    //   Serial.println(time_diff);
 
-      Serial.println(ang_vel);
+    //   Serial.println(ang_vel);
 
       Serial.print(ang_vel);
       Serial.print(" rad/s for motor ");
@@ -230,19 +238,102 @@ void setup() {
   pinMode(MOTOR_DIR1, OUTPUT);
   pinMode(MOTOR_DIR2, OUTPUT);
 
+  //****************WIFI*************//
+  // Connectting to WiFi in AP mode
+  WiFi.softAP(ssid, password);
+  Serial.print("Access Point IP: ");
+  Serial.println(WiFi.softAPIP());
+
+  // Defining routes
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/setSpeed", HTTP_GET, handleSetSpeed);
+  server.on("/setDirection", HTTP_GET, handleSetDirection);
+  // server.on("/setMotorState", HTTP_GET, handleSetMotorState);
+  server.begin();
+  //****************WIFI*************//
+
 
 }
 
+//****************WIFI*************//
+// Function to handle root 
+void handleRoot() {
+  server.send(200, "text/html", htmlPage);
+}
+
+// Setting motor speed
+void handleSetSpeed() {
+  if (server.hasArg("value")) {
+    motorControl[2] = server.arg("value").toInt();
+    Serial.print("Speed set to: ");
+    Serial.println(motorControl[2]);
+  }
+  server.send(204);
+}
+
+// Setting motor direction 
+void handleSetDirection() {
+  if (server.hasArg("dir")) {
+    int dir = server.arg("dir").toInt();
+    if (dir == 2) {
+      motorControl[1] -= 0.25;  // Decrementing by 0.25 - Left
+
+    } else if (dir == 3) {
+      motorControl[1] += 0.25;  // Increment by 0.25 - Right
+    }
+    else if (dir == 1){
+      motorControl[0] = 1; // Up
+    }
+    else if (dir == -1){
+      motorControl[0] = -1; // Down
+    }
+    else if (dir == 0){
+      motorControl[0] = 0; // Stop
+      motorControl[1] = 0;
+      
+    }
+
+  }
+  server.send(204);
+}
+//****************WIFI*************//
+
+
 void loop() {
+
+  float lin_vel = 0.0;
+  float ang_vel = 0.0;
   // put your main code here, to run repeatedly:
   // Wifi Servr code to get Velocity command:
   // moveMotor(1, 1);
 
-  float lin_vel = .8;
-  float ang_vel = 0.25;
+  //****************WIFI*************//
+  server.handleClient();
+
+  for (int i = 0; i <4; i++) {
+    Serial.println(motorControl[i]);
+
+  }
+  lin_vel = motorControl[0] * motorControl[2]/100.0;
+  ang_vel = motorControl[1];
+  if (abs(motorControl[0]) < .01) {
+    ledcWrite(EN_PIN,0 );
+    return;
+
+
+  
+  }
+  
+  Serial.print("Linear Vel: ");
+  Serial.println(lin_vel);
+  Serial.print("Angular Vel: ");
+
+  Serial.println(ang_vel);
+  // delay(100);
+  //****************WIFI*************//
 
   calcMotorVelSetpoint(lin_vel, ang_vel);
-  motorControl();
+  controlMotor();
   delay(50);
 
 }

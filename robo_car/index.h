@@ -9,7 +9,7 @@
 //  </body></html>
 // )===";
 
-const char body[] PROGMEM = R"===(
+const char htmlPage[] PROGMEM = R"===(
 <!DOCTYPE html>
 <html lang="en">
 
