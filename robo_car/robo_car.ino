@@ -1,3 +1,8 @@
+#include <WiFi.h>
+#include "index.h"
+#include "html510.h"
+// HTML510Server h(80);
+
 #define EN_PIN 15
 #define MOTOR_DIR1 23
 #define MOTOR_DIR2 22
