@@ -5,9 +5,9 @@
 #include "html510.h"
 // HTML510Server h(80);
 
-#define EN_PIN 15
-#define MOTOR_DIR1 23
-#define MOTOR_DIR2 22
+// #define EN_PIN 15
+// #define MOTOR_DIR1 23
+// #define MOTOR_DIR2 22
 
 #define LEDC_RESOLUTION_BITS 14
 #define LEDC_RESOLUTION ((1 << LEDC_RESOLUTION_BITS) - 1)
@@ -32,21 +32,18 @@ float motorControl[3] = {0, 0.0, 0};
 
 //*******WIFI***********//
 
-
-
-
-
 hw_timer_t * timer = NULL;
 bool ret = false;
 bool ledsig = false;
 
-const int encoderPIN1[4] = {4, 21, 25, 26}; // channel 1 for 4 encoders
-// const int encoderPIN2[4] = {19, 22, 27, 14}; // channel 2 for 4 encoders
-const int motorPIN1[4] = {15, 10, 19, 0}; // channel 2 for motor pins
-// const int motorPIN2[4] = {19, 22, 27, 14}; // channel 2 for 4 encoders
+const int encoderPIN1[4] = {23, 22, 1, 3}; // channel 1 for 4 encoders
+const int motorPINEN[4] = {4, 0, 2, 15}; // motor EN PWM pins
+const int motorPINDIR[4] = {19, 18, 5, 17}; // motor DIR pins
 
 volatile long ticksPerInterval[4] = {0, 0, 0, 0};
-// volatile long positionCounts[4] = {0, 0, 0, 0};
+
+// We dictate motorDir after we set the directions on the motor directly
+// To ensure the ISR will update correctly
 volatile long motorDir[4] = {1, 1, 1, 1};
 
 // Rad/seconds
@@ -55,7 +52,6 @@ volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
 volatile float currentWheelAngVel[4] = {0.0, 0.0, 0.0, 0.0};
 volatile unsigned long currentWheelPwm[4] = {0, 0, 0, 0};
 
-
 int CPR = 13.75;
 float rotPerTick = 360.0 / CPR;
 const int timer_interval = 100;
@@ -63,33 +59,11 @@ const int timer_interval = 100;
 // after 
 int initializeControl = 0;
 
-
 void IRAM_ATTR encoderISR0() { ticksPerInterval[0] += motorDir[0];}
 void IRAM_ATTR encoderISR1() { ticksPerInterval[1] += motorDir[1];}
 void IRAM_ATTR encoderISR2() { ticksPerInterval[2] += motorDir[2];}
 void IRAM_ATTR encoderISR3() { ticksPerInterval[3] += motorDir[3];}
 
-
-
-
-void moveMotor(int motor_pin, int dir){
-
-  if (dir == 1){
-    // move forward
-    digitalWrite(MOTOR_DIR1, HIGH);
-    digitalWrite(MOTOR_DIR2, LOW);    
-    ledcWrite(EN_PIN, 16383);
-  } else if (dir == -1){
-    // move backward
-    digitalWrite(motor_pin, LOW);
-    digitalWrite(motor_pin, HIGH);
-  } else {
-    // stop
-    digitalWrite(motor_pin, LOW);
-    digitalWrite(motor_pin, LOW); 
-  }
-
-}
 
 void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
   // we want to return an array that has each motor velocity
@@ -101,11 +75,24 @@ void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
   motorVelSetpoint[1] = ang_v_right;
   motorVelSetpoint[2] = ang_v_left;
   motorVelSetpoint[3] = ang_v_left;
+
   Serial.println("Motor Setpoints:");
-  Serial.println(motorVelSetpoint[0]);
-  // Serial.println(motorVelSetpoint[1]);
-  // Serial.println(motorVelSetpoint[2]);
-  // Serial.println(motorVelSetpoint[3]);
+
+  Serial.print("Motor1: ");
+  Serial.print(motorVelSetpoint[0]);
+  Serial.println(" rad/s");
+
+  Serial.print("Motor2: ");
+  Serial.print(motorVelSetpoint[1]);
+  Serial.println(" rad/s");
+
+  Serial.print("Motor3: ");
+  Serial.print(motorVelSetpoint[2]);
+  Serial.println(" rad/s");
+
+  Serial.print("Motor4: ");
+  Serial.print(motorVelSetpoint[3]);
+  Serial.println(" rad/s");
 
 }
 
@@ -152,7 +139,7 @@ void controlMotor() {
     // Serial.println(time_diff);
 
     float ang_vel = rad / (time_diff/1000.0);
-    if (i == 0){
+    // if (i == 0){
     //   Serial.println("Ang Vel Calc");
     //   Serial.println(tick);
     //   Serial.println(rad);
@@ -160,12 +147,11 @@ void controlMotor() {
 
     //   Serial.println(ang_vel);
 
-      Serial.print(ang_vel);
-      Serial.print(" rad/s for motor ");
-      Serial.println(i);
-    }
+    // }
+    Serial.print(ang_vel);
+    Serial.print(" rad/s for motor ");
+    Serial.println(i);
    
-    
     prev_tick[i] = ticksPerInterval[i];
     currentWheelAngVel[i] = ang_vel;
   
@@ -173,39 +159,30 @@ void controlMotor() {
   }
   
   float error[4];
-  // Serial.println("PWM:");
+
   for (int i = 0; i < 4; i++) {
     error[i] =  motorVelSetpoint[i] - currentWheelAngVel[i];
     float u = KP * error[i];
-    // digitalWrite(MOTOR_DIR1, HIGH);
-    // digitalWrite(MOTOR_DIR2, LOW);    
-    // ledcWrite(EN_PIN, 16383);
-    if (i == 0) {
-      Serial.println(currentWheelPwm[0]);
-      Serial.print("U: ");
-      Serial.println(u);
-    }
+    Serial.print("U Control Signal: ");
+    Serial.println(u);
     currentWheelPwm[i] = currentWheelPwm[i] + u;
-    if (i == 0) {
-      Serial.println(currentWheelPwm[0]);
 
-    }
-    
-    
+    // Clamping
     if (currentWheelPwm[i] > 16383){
       currentWheelPwm[i] = 16383;
     } else if(currentWheelPwm[i] < 0) {
       currentWheelPwm[i] = 0;
-
-    }
-    if (i == 0) {
-      digitalWrite(MOTOR_DIR1, HIGH);
-      digitalWrite(MOTOR_DIR2, LOW);    
-      ledcWrite(EN_PIN, currentWheelPwm[i]);
-      // ledcWrite(EN_PIN, 4000);
-
     }
     
+    if (motorVelSetpoint[i] > 0) {
+      digitalWrite(motorPINDIR[i], HIGH);
+      motorDir[i] = 1;
+    } else if (motorVelSetpoint[i] < 0) {
+      digitalWrite(motorPINDIR[i], LOW);
+      motorDir[i] = -1;
+    }
+
+    ledcWrite(motorPINEN[i], currentWheelPwm[i]);
   }
 
   previous_timestamp = current_timestamp;
@@ -218,25 +195,28 @@ void setup() {
 
   // timer configurations
   Serial.begin(115200);
-  // timer = timerBegin(1000000); // set freq to 1us
-  // timerAttachInterrupt(timer, &onTimer);
-  // timerAlarm(timer, 500, true, 0); // 100000 ticks per cycle
 
   // setup encoder pins and interrupt
+  //****************PIN Setup*************//
   for (int i = 0; i < 4; i++){
     pinMode(encoderPIN1[i], INPUT);
     attachInterrupt(digitalPinToInterrupt(encoderPIN1[i]), i == 0 ? encoderISR0
     :(i == 1 ? encoderISR1 : (i == 2 ? encoderISR2 : encoderISR3)), CHANGE);
   }
-  ledcAttach(EN_PIN, LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
 
+  // PWM EN Pins
+  ledcAttach(motorPINEN[0], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
+  ledcAttach(motorPINEN[1], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
+  ledcAttach(motorPINEN[2], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
+  ledcAttach(motorPINEN[3], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
 
-  // // setup motors
-  // for (int motor_num = 0; motor_num < 4; motor_num++){
-  //   pinMode(motorPIN1[motor_num], OUTPUT);
-  // }
-  pinMode(MOTOR_DIR1, OUTPUT);
-  pinMode(MOTOR_DIR2, OUTPUT);
+  // DIR Pins
+  pinMode(motorPINDIR[0], OUTPUT);
+  pinMode(motorPINDIR[1], OUTPUT);
+  pinMode(motorPINDIR[2], OUTPUT);
+  pinMode(motorPINDIR[3], OUTPUT);
+  //****************PIN Setup*************//
+
 
   //****************WIFI*************//
   // Connectting to WiFi in AP mode
@@ -310,30 +290,34 @@ void loop() {
   //****************WIFI*************//
   server.handleClient();
 
-  for (int i = 0; i <4; i++) {
+  Serial.println("###############");
+  Serial.println("User Input: ");
+  for (int i = 0; i < 3; i++) {
     Serial.println(motorControl[i]);
-
   }
+  Serial.println("\n");
+
+  // Set the direction of each motor from the input
+
   lin_vel = motorControl[0] * motorControl[2]/100.0;
   ang_vel = motorControl[1];
   if (abs(motorControl[0]) < .01) {
-    ledcWrite(EN_PIN,0 );
+    Serial.print("Received STOP");
+    for (int i = 0; i < 4; i++) {
+      ledcWrite(motorPINEN[i], 0);
+      motorVelSetpoint[i] = 0.0;
+    }
     return;
 
-
-  
   }
-  
+
   Serial.print("Linear Vel: ");
   Serial.println(lin_vel);
   Serial.print("Angular Vel: ");
-
   Serial.println(ang_vel);
-  // delay(100);
   //****************WIFI*************//
 
   calcMotorVelSetpoint(lin_vel, ang_vel);
   controlMotor();
   delay(50);
-
 }
