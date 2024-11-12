@@ -27,7 +27,7 @@ const char *password = "12345678";
 WebServer server(80);
 
 // Motor control values array
-float motorControl[3] = {0, 0.0, 0}; 
+float motorControl[3] = {0.0, 0.0, 0.0}; 
 
 
 //*******WIFI***********//
@@ -36,9 +36,9 @@ hw_timer_t * timer = NULL;
 bool ret = false;
 bool ledsig = false;
 
-const int encoderPIN1[4] = {0, 1, 2, 3}; // channel 1 for 4 encoders
-const int motorPINEN[4] = {4, 5, 6, 7}; // motor EN PWM pins
-const int motorPINDIR[4] = {8, 9, 10, 11}; // motor DIR pins
+const int encoderPIN1[4] = {4, 5, 6, 7}; // channel 1 for 4 encoders
+const int motorPINEN[4] = {15, 16, 17, 18}; // motor EN PWM pins
+const int motorPINDIR[4] = {8, 3, 46, 9}; // motor DIR pins
 
 volatile long ticksPerInterval[4] = {0, 0, 0, 0};
 
@@ -48,6 +48,9 @@ volatile long motorDir[4] = {1, 1, 1, 1};
 
 // Rad/seconds
 volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
+volatile float kpMotor[4] = {5, 5, 12, 12};
+// volatile float kpMotorAng[4] = {4, 4, 4, 4};
+
 
 volatile float currentWheelAngVel[4] = {0.0, 0.0, 0.0, 0.0};
 volatile unsigned long currentWheelPwm[4] = {0, 0, 0, 0};
@@ -162,7 +165,7 @@ void controlMotor() {
 
   for (int i = 0; i < 4; i++) {
     error[i] =  abs(motorVelSetpoint[i]) - abs(currentWheelAngVel[i]);
-    float u = KP * error[i];
+    float u = kpMotor[i] * error[i];
     Serial.print("U Control Signal: ");
     Serial.println(u);
     currentWheelPwm[i] = currentWheelPwm[i] + u;
@@ -198,8 +201,12 @@ void controlMotor() {
       // digitalWrite(motorPINDIR[i], LOW);
       // motorDir[i] = -1;
     }
-
-    ledcWrite(motorPINEN[i], currentWheelPwm[i]);
+    if (i == 0 || i == 1) {
+      ledcWrite(motorPINEN[i], currentWheelPwm[1]);
+    } else {
+      ledcWrite(motorPINEN[i], currentWheelPwm[3]);
+    }
+    // ledcWrite(motorPINEN[i], currentWheelPwm[i]);
   }
 
   previous_timestamp = current_timestamp;
@@ -273,10 +280,10 @@ void handleSetDirection() {
   if (server.hasArg("dir")) {
     int dir = server.arg("dir").toInt();
     if (dir == 2) {
-      motorControl[1] -= 0.25;  // Decrementing by 0.25 - Left
+      motorControl[1] += 0.4;  // Decrementing by 0.25 - Left
 
     } else if (dir == 3) {
-      motorControl[1] += 0.25;  // Increment by 0.25 - Right
+      motorControl[1] -= 0.4;  // Increment by 0.25 - Right
     }
     else if (dir == 1){
       motorControl[0] = 1; // Up
@@ -287,6 +294,9 @@ void handleSetDirection() {
     else if (dir == 0){
       motorControl[0] = 0; // Stop
       motorControl[1] = 0;
+      // motorControl[2] = 0;
+
+
       
     }
 
@@ -318,8 +328,12 @@ void loop() {
 
   lin_vel = motorControl[0] * motorControl[2]/100.0;
   ang_vel = motorControl[1];
-  if (abs(motorControl[0]) < .01) {
+  if (abs(motorControl[0]) < .01 && abs(motorControl[1]) < .01) {
+   
+    
     Serial.println("Received STOP");
+    Serial.println(motorControl[1]);
+
     for (int i = 0; i < 4; i++) {
       ledcWrite(motorPINEN[i], 0);
       motorVelSetpoint[i] = 0.0;
