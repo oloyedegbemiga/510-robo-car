@@ -36,9 +36,9 @@ hw_timer_t * timer = NULL;
 bool ret = false;
 bool ledsig = false;
 
-const int encoderPIN1[4] = {23, 22, 1, 3}; // channel 1 for 4 encoders
-const int motorPINEN[4] = {4, 0, 2, 15}; // motor EN PWM pins
-const int motorPINDIR[4] = {19, 18, 5, 17}; // motor DIR pins
+const int encoderPIN1[4] = {0, 1, 2, 3}; // channel 1 for 4 encoders
+const int motorPINEN[4] = {4, 5, 6, 7}; // motor EN PWM pins
+const int motorPINDIR[4] = {8, 9, 10, 11}; // motor DIR pins
 
 volatile long ticksPerInterval[4] = {0, 0, 0, 0};
 
@@ -161,7 +161,7 @@ void controlMotor() {
   float error[4];
 
   for (int i = 0; i < 4; i++) {
-    error[i] =  motorVelSetpoint[i] - currentWheelAngVel[i];
+    error[i] =  abs(motorVelSetpoint[i]) - abs(currentWheelAngVel[i]);
     float u = KP * error[i];
     Serial.print("U Control Signal: ");
     Serial.println(u);
@@ -175,11 +175,28 @@ void controlMotor() {
     }
     
     if (motorVelSetpoint[i] > 0) {
-      digitalWrite(motorPINDIR[i], HIGH);
-      motorDir[i] = 1;
+      if (i == 0 || i == 1) {
+        digitalWrite(motorPINDIR[i], HIGH);
+        motorDir[i] = 1;
+
+      } else {
+        digitalWrite(motorPINDIR[i], LOW);
+        motorDir[i] = -1;
+
+      }
+      
     } else if (motorVelSetpoint[i] < 0) {
-      digitalWrite(motorPINDIR[i], LOW);
-      motorDir[i] = -1;
+      if (i == 2 || i == 3) {
+        digitalWrite(motorPINDIR[i], HIGH);
+        motorDir[i] = 1;
+
+      } else {
+        digitalWrite(motorPINDIR[i], LOW);
+        motorDir[i] = -1;
+
+      }
+      // digitalWrite(motorPINDIR[i], LOW);
+      // motorDir[i] = -1;
     }
 
     ledcWrite(motorPINEN[i], currentWheelPwm[i]);
@@ -197,7 +214,7 @@ void setup() {
   Serial.begin(115200);
 
   // setup encoder pins and interrupt
-  //****************PIN Setup*************//
+  // //****************PIN Setup*************//
   for (int i = 0; i < 4; i++){
     pinMode(encoderPIN1[i], INPUT);
     attachInterrupt(digitalPinToInterrupt(encoderPIN1[i]), i == 0 ? encoderISR0
@@ -215,7 +232,7 @@ void setup() {
   pinMode(motorPINDIR[1], OUTPUT);
   pinMode(motorPINDIR[2], OUTPUT);
   pinMode(motorPINDIR[3], OUTPUT);
-  //****************PIN Setup*************//
+  // //****************PIN Setup*************//
 
 
   //****************WIFI*************//
@@ -302,7 +319,7 @@ void loop() {
   lin_vel = motorControl[0] * motorControl[2]/100.0;
   ang_vel = motorControl[1];
   if (abs(motorControl[0]) < .01) {
-    Serial.print("Received STOP");
+    Serial.println("Received STOP");
     for (int i = 0; i < 4; i++) {
       ledcWrite(motorPINEN[i], 0);
       motorVelSetpoint[i] = 0.0;
