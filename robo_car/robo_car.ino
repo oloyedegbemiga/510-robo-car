@@ -18,7 +18,7 @@
 #define WHEEL_RADIUS .04
 #define PI 3.14159265358979323846
 
-#define KP 8
+#define KP 10
 //*******WIFI***********//
 // WiFi Credentials
 const char *ssid = "Robocar";
@@ -49,7 +49,7 @@ volatile long motorDir[4] = {1, 1, 1, 1};
 // Rad/seconds
 volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
 volatile float kpMotor[4] = {5, 5, 12, 12};
-// volatile float kpMotorAng[4] = {4, 4, 4, 4};
+volatile float kpMotorAng[4] = {2, 2, 2, 2};
 
 
 volatile float currentWheelAngVel[4] = {0.0, 0.0, 0.0, 0.0};
@@ -99,7 +99,7 @@ void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
 
 }
 
-void controlMotor() {
+void controlMotor(float lin_vel, float ang_vel) {
   
   static unsigned long previous_timestamp;
   unsigned long current_timestamp = millis();
@@ -165,9 +165,17 @@ void controlMotor() {
 
   for (int i = 0; i < 4; i++) {
     error[i] =  abs(motorVelSetpoint[i]) - abs(currentWheelAngVel[i]);
-    float u = kpMotor[i] * error[i];
+    float u = KP * error[i];
+    // if (motorVelSetpoint[0] != motorVelSetpoint[2]) {
+    //   // Rotating
+    //   u = kpMotorAng[i] * error[i];
+
+
+    // } else {
+    //   // Linear
+    //   u = kpMotor[i] * error[i];
+    // }
     Serial.print("U Control Signal: ");
-    Serial.println(u);
     currentWheelPwm[i] = currentWheelPwm[i] + u;
 
     // Clamping
@@ -201,11 +209,16 @@ void controlMotor() {
       // digitalWrite(motorPINDIR[i], LOW);
       // motorDir[i] = -1;
     }
-    if (i == 0 || i == 1) {
-      ledcWrite(motorPINEN[i], currentWheelPwm[1]);
+    if (abs(lin_vel) < .01) {
+      ledcWrite(motorPINEN[i], 4000);
+
     } else {
-      ledcWrite(motorPINEN[i], currentWheelPwm[3]);
+      ledcWrite(motorPINEN[i], currentWheelPwm[0]);
+
+
     }
+    
+    
     // ledcWrite(motorPINEN[i], currentWheelPwm[i]);
   }
 
@@ -280,10 +293,15 @@ void handleSetDirection() {
   if (server.hasArg("dir")) {
     int dir = server.arg("dir").toInt();
     if (dir == 2) {
-      motorControl[1] += 0.4;  // Decrementing by 0.25 - Left
+      motorControl[1] += 0.1;  // Decrementing by 0.25 - Left
+
+      // motorControl[0] = 0;
+      // motorControl[2] = 0;
 
     } else if (dir == 3) {
-      motorControl[1] -= 0.4;  // Increment by 0.25 - Right
+      motorControl[1] -= 0.1;  // Increment by 0.25 - Right
+      // motorControl[0] = 0;
+      // motorControl[2] = 0;
     }
     else if (dir == 1){
       motorControl[0] = 1; // Up
@@ -349,6 +367,6 @@ void loop() {
   //****************WIFI*************//
 
   calcMotorVelSetpoint(lin_vel, ang_vel);
-  controlMotor();
+  controlMotor(lin_vel, ang_vel);
   delay(50);
 }
