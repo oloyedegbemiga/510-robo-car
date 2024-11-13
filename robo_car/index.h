@@ -1,13 +1,8 @@
-
-// const char body[] PROGMEM = R"===(
-//  <!DOCTYPE html>
-//  <html><body>
-//  <h1>
-//  <a href="/H">Turn ON</a> LED.<br>
-//  <a href="/L">Turn OFF</a> LED.<br>
-//  </h1>
-//  </body></html>
-// )===";
+/* Project Name: Lab 4
+ * Author: Oluwagbemiga Oloyede, Kashish Garg, Dhyey Shah
+ * License: You may use, distribute and modify this code under the terms of the GNU GPLv3.0 license
+ * Name: 4.2
+ */
 
 const char htmlPage[] PROGMEM = R"===(
 <!DOCTYPE html>
@@ -18,7 +13,6 @@ const char htmlPage[] PROGMEM = R"===(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Robot Car Controller</title>
   <style>
-    /* Basic page styling */
     body {
       display: flex;
       flex-direction: column;
@@ -49,7 +43,6 @@ const char htmlPage[] PROGMEM = R"===(
         ". down .";
       gap: 20px;
       /* justify-content: center;
-      align-items: baseline; */
       /* transform: rotate(-90deg); */
     }
 
@@ -122,7 +115,7 @@ const char htmlPage[] PROGMEM = R"===(
     @media (max-width: 600px) {
       .speed-control {
         width: 90%;
-        /* Adjust slider width to fit smaller screens */
+        /* adjust slider width to fit smaller screens */
       }
 
       body {
@@ -184,7 +177,7 @@ const char htmlPage[] PROGMEM = R"===(
     <h1 id="header-elem">Robot Car Controller</h1>
   </div>
   <div class="interface">
-    <!-- Control buttons -->
+    <!-- control -->
     <div class="controls-div">
       <div class="controls">
         <button class="up" onclick="sendCommand('1')">Up</button>
@@ -206,11 +199,8 @@ const char htmlPage[] PROGMEM = R"===(
 
   <script>
     function sendCommand(command) {
-      console.log(`Sending command: ${command}`);
-      // Here you can add the AJAX or WebSocket call to send the command to the robot.
-      // var dc = document.getElementById('speed-display').textContent;
+      console.log(`sending command: ${command}`);
       var xhttp = new XMLHttpRequest();
-      // var str = "linear_vel?val=";
       var str = "setDirection?dir="
       var res = str.concat(command);
       xhttp.open("GET", res, true);
@@ -226,8 +216,7 @@ const char htmlPage[] PROGMEM = R"===(
       xhttp.open("GET", res, true);
       xhttp.send();
       document.getElementById('speed-display').textContent = speed;
-      console.log(`Setting speed to: ${speed}`);
-      // Here you can add the code to update the speed on the robot.
+      console.log(`setting speed to: ${speed}`);
     }
   </script>
 </body>
