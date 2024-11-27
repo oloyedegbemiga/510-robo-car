@@ -19,6 +19,7 @@
 #define PI 3.14159265358979323846
 
 #define KP 10
+#define KD -.01
 //*******WIFI***********//
 // WiFi Credentials
 const char *ssid = "Robocar";
@@ -103,6 +104,8 @@ void controlMotor(float lin_vel, float ang_vel) {
   
   static unsigned long previous_timestamp;
   unsigned long current_timestamp = millis();
+  static int prev_tick_dot[4];
+
   if (initializeControl == 0) {
     previous_timestamp = current_timestamp;
     initializeControl = 1;
@@ -162,10 +165,17 @@ void controlMotor(float lin_vel, float ang_vel) {
   }
   
   float error[4];
+  float acceleration[4];
+
 
   for (int i = 0; i < 4; i++) {
     error[i] =  abs(motorVelSetpoint[i]) - abs(currentWheelAngVel[i]);
-    float u = KP * error[i];
+    acceleration[i] = 1000 * (currentWheelAngVel[i] - prev_tick_dot[i] / time_diff);
+    Serial.print("D term: ");
+    Serial.println(acceleration[i]*KD);
+    Serial.print("P term: ");
+    Serial.println(error[i]*KP);
+    float u = KP * error[i] + KD* acceleration[i];
     // if (motorVelSetpoint[0] != motorVelSetpoint[2]) {
     //   // Rotating
     //   u = kpMotorAng[i] * error[i];
@@ -175,8 +185,10 @@ void controlMotor(float lin_vel, float ang_vel) {
     //   // Linear
     //   u = kpMotor[i] * error[i];
     // }
-    Serial.print("U Control Signal: ");
+    
     currentWheelPwm[i] = currentWheelPwm[i] + u;
+    Serial.print("U Control Signal: ");
+    Serial.println(currentWheelPwm[i]);
 
     // Clamping
     if (currentWheelPwm[i] > 16383){
@@ -221,7 +233,9 @@ void controlMotor(float lin_vel, float ang_vel) {
     
     // ledcWrite(motorPINEN[i], currentWheelPwm[i]);
   }
-
+  for (int i=0; i < 4; i++) {
+    prev_tick_dot[i] = currentWheelAngVel[i];
+  }
   previous_timestamp = current_timestamp;
 
 }
