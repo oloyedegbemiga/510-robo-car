@@ -13,7 +13,7 @@
 // objects for the vl53l0x
 Adafruit_VL53L0X lox1 = Adafruit_VL53L0X();
 Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
-Adafruit_VL53LOX lox3 = Adafruit_VL53L0X();
+Adafruit_VL53L0X lox3 = Adafruit_VL53L0X();
 
 // this holds the measurement
 VL53L0X_RangingMeasurementData_t measure1;
@@ -67,7 +67,7 @@ void setID() {
   delay(10);
 
   if(!lox3.begin(LOX3_ADDRESS)) {
-    Serial.println(F("Failed to boot second VL53L0X"));
+    Serial.println(F("Failed to boot Third VL53L0X"));
     while(1);
   }
 
@@ -83,9 +83,9 @@ void read_dual_sensors() {
   // print sensor one reading
   Serial.print(F("1: "));
   if(measure1.RangeStatus != 4) {     // if not out of range
-    Serial.print(measure1.RangeMilliMeter);
+    Serial.println(measure1.RangeMilliMeter);
   } else {
-    Serial.print(F("Out of range"));
+    Serial.println(F("Out of range"));
   }
   
   Serial.print(F(" "));
@@ -93,9 +93,9 @@ void read_dual_sensors() {
   // print sensor two reading
   Serial.print(F("2: "));
   if(measure2.RangeStatus != 4) {
-    Serial.print(measure2.RangeMilliMeter);
+    Serial.println(measure2.RangeMilliMeter);
   } else {
-    Serial.print(F("Out of range"));
+    Serial.println(F("Out of range"));
   }
 
 
@@ -104,9 +104,9 @@ void read_dual_sensors() {
   // print sensor two reading
   Serial.print(F("3: "));
   if(measure3.RangeStatus != 4) {
-    Serial.print(measure3.RangeMilliMeter);
+    Serial.println(measure3.RangeMilliMeter);
   } else {
-    Serial.print(F("Out of range"));
+    Serial.println(F("Out of range"));
   }
 
   
@@ -125,9 +125,9 @@ void setup() {
 
   Serial.println(F("Shutdown pins inited..."));
 
-  digitalWrite(SHT_LOX1, LOW);
-  digitalWrite(SHT_LOX2, LOW);
-  digitalWrite(SHT_LOX3, LOW);
+  // digitalWrite(SHT_LOX1, LOW);
+  // digitalWrite(SHT_LOX2, LOW);
+  // digitalWrite(SHT_LOX3, LOW);
 
   Serial.println(F("Both in reset mode...(pins are low)"));
   
