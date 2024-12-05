@@ -15,10 +15,10 @@
 
 // Meters
 #define HALF_WHEEL_BASE_B 0.13
-#define WHEEL_RADIUS .04
+#define WHEEL_RADIUS .07
 #define PI 3.14159265358979323846
 
-#define KP 10
+
 #define KD -.01
 //*******WIFI***********//
 // WiFi Credentials
@@ -49,7 +49,7 @@ volatile long motorDir[4] = {1, 1, 1, 1};
 
 // Rad/seconds
 volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
-volatile float kpMotor[4] = {5, 5, 12, 12};
+volatile float kpMotor[4] = {5, 12, 12, 12};
 volatile float kpMotorAng[4] = {2, 2, 2, 2};
 
 
@@ -154,6 +154,7 @@ void controlMotor(float lin_vel, float ang_vel) {
     //   Serial.println(ang_vel);
 
     // }
+    
     Serial.print(ang_vel);
     Serial.print(" rad/s for motor ");
     Serial.println(i);
@@ -170,12 +171,12 @@ void controlMotor(float lin_vel, float ang_vel) {
 
   for (int i = 0; i < 4; i++) {
     error[i] =  abs(motorVelSetpoint[i]) - abs(currentWheelAngVel[i]);
-    acceleration[i] = 1000 * (currentWheelAngVel[i] - prev_tick_dot[i] / time_diff);
+    acceleration[i] = 1000 * (abs(currentWheelAngVel[i]) - abs(prev_tick_dot[i] / time_diff));
     Serial.print("D term: ");
     Serial.println(acceleration[i]*KD);
     Serial.print("P term: ");
-    Serial.println(error[i]*KP);
-    float u = KP * error[i] + KD* acceleration[i];
+    Serial.println(error[i]*kpMotor[i]);
+    float u = kpMotor[i] * error[i] + KD* acceleration[i];
     // if (motorVelSetpoint[0] != motorVelSetpoint[2]) {
     //   // Rotating
     //   u = kpMotorAng[i] * error[i];
@@ -187,8 +188,7 @@ void controlMotor(float lin_vel, float ang_vel) {
     // }
     
     currentWheelPwm[i] = currentWheelPwm[i] + u;
-    Serial.print("U Control Signal: ");
-    Serial.println(currentWheelPwm[i]);
+    
 
     // Clamping
     if (currentWheelPwm[i] > 16383){
@@ -196,6 +196,8 @@ void controlMotor(float lin_vel, float ang_vel) {
     } else if(currentWheelPwm[i] < 0) {
       currentWheelPwm[i] = 0;
     }
+    Serial.print("U Control Signal: ");
+    Serial.println(currentWheelPwm[i]);
     
     if (motorVelSetpoint[i] > 0) {
       if (i == 0 || i == 1) {
@@ -222,11 +224,16 @@ void controlMotor(float lin_vel, float ang_vel) {
       // motorDir[i] = -1;
     }
     if (abs(lin_vel) < .01) {
-      ledcWrite(motorPINEN[i], 4000);
+      ledcWrite(motorPINEN[i], 2000);
 
     } else {
-      ledcWrite(motorPINEN[i], currentWheelPwm[0]);
-
+      if ( i == 0 || i == 1) {
+        ledcWrite(motorPINEN[i], currentWheelPwm[1]);
+      } else {
+        ledcWrite(motorPINEN[i], currentWheelPwm[3]);
+      }
+    
+      
 
     }
     
