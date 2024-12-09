@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "CD74HC04E")(type "KiCad")(uri "/home/kash/fw/omni-mapper/pcb/omni-wheel/syms/CD74HC04E.kicad_sym")(options "")(descr ""))
+  (lib (name "SN74AC86DR")(type "KiCad")(uri "/home/kash/fw/omni-mapper/pcb/omni-wheel/syms/SN74AC86DR.kicad_sym")(options "")(descr ""))
+  (lib (name "SN74HCT74DR")(type "KiCad")(uri "/home/kash/fw/omni-mapper/pcb/omni-wheel/syms/SN74HCT74DR.kicad_sym")(options "")(descr ""))
+)

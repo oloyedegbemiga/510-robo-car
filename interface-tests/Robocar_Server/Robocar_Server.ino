@@ -24,7 +24,7 @@ void setup() {
   server.on("/", HTTP_GET, handleRoot);
   server.on("/setSpeed", HTTP_GET, handleSetSpeed);
   server.on("/setDirection", HTTP_GET, handleSetDirection);
-  server.on("/setMotorState", HTTP_GET, handleSetMotorState);
+  // server.on("/setMotorState", HTTP_GET, handleSetMotorState);
   server.begin();
 }
 
