@@ -1,13 +1,15 @@
+/* Project Name: Lab 4
+ * Author: Oluwagbemiga Oloyede, Kashish Garg, Dhyey Shah
+ * License: You may use, distribute and modify this code under the terms of the GNU GPLv3.0 license
+ * Name: 4.2
+ */
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include "index.h"
 #include "html510.h"
-// HTML510Server h(80);
-
-// #define EN_PIN 15
-// #define MOTOR_DIR1 23
-// #define MOTOR_DIR2 22
+#include "tof_sensors.h"
 
 #define LEDC_RESOLUTION_BITS 14
 #define LEDC_RESOLUTION ((1 << LEDC_RESOLUTION_BITS) - 1)
@@ -120,24 +122,10 @@ void controlMotor(float lin_vel, float ang_vel) {
   static int ticks_between_control[4];
   Serial.println("Start");
   for (int i = 0; i < 4; i++) {
-    // if (i == 0) {
-    //   Serial.println("Ticks:");
-    //   Serial.println(ticksPerInterval[i]);
-  
-    //   Serial.println(prev_tick[i]);
-    // }
 
     float tick = ticksPerInterval[i] - prev_tick[i];
-    // Serial.println(tick);
-    // if (i == 0){
-    //   Serial.println(tick);
-    // }
 
     tick = tick / (34.0);
-    // if (i == 0){
-    //   Serial.println(tick);
-    // }
-    // Serial.println(tick);
     // each tick is 30 degrees
     float rad = tick * 30 * PI / 180;
    
@@ -154,7 +142,6 @@ void controlMotor(float lin_vel, float ang_vel) {
     //   Serial.println(ang_vel);
 
     // }
-    
     Serial.print(ang_vel);
     Serial.print(" rad/s for motor ");
     Serial.println(i);
@@ -254,6 +241,10 @@ void setup() {
   // timer configurations
   Serial.begin(115200);
 
+  if (!setup_tof()){
+    Serial.print("setting up TOF failed");
+  }
+
   // setup encoder pins and interrupt
   // //****************PIN Setup*************//
   for (int i = 0; i < 4; i++){
@@ -333,9 +324,6 @@ void handleSetDirection() {
     else if (dir == 0){
       motorControl[0] = 0; // Stop
       motorControl[1] = 0;
-      // motorControl[2] = 0;
-
-
       
     }
 
@@ -347,6 +335,7 @@ void handleSetDirection() {
 
 void loop() {
 
+  read_sensors();
   float lin_vel = 0.0;
   float ang_vel = 0.0;
   // put your main code here, to run repeatedly:
