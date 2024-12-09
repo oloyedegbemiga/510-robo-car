@@ -9,6 +9,7 @@
 #include <WebServer.h>
 #include "index.h"
 #include "html510.h"
+#include "tof_sensors.h"
 
 #define LEDC_RESOLUTION_BITS 14
 #define LEDC_RESOLUTION ((1 << LEDC_RESOLUTION_BITS) - 1)
@@ -211,6 +212,10 @@ void setup() {
   // timer configurations
   Serial.begin(115200);
 
+  if (!setup_tof()){
+    Serial.print("setting up TOF failed");
+  }
+
   // setup encoder pins and interrupt
   // //****************PIN Setup*************//
   for (int i = 0; i < 4; i++){
@@ -301,6 +306,7 @@ void handleSetDirection() {
 
 void loop() {
 
+  read_sensors();
   float lin_vel = 0.0;
   float ang_vel = 0.0;
   // put your main code here, to run repeatedly:
