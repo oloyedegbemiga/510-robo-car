@@ -3,11 +3,27 @@
 #include <WebServer.h>
 #include "index.h"
 #include "html510.h"
-// HTML510Server h(80);
+#include "Adafruit_VL53L0X.h"
 
-// #define EN_PIN 15
-// #define MOTOR_DIR1 23
-// #define MOTOR_DIR2 22
+// address we will assign if dual sensor is present
+#define LOX1_ADDRESS 0x30
+#define LOX2_ADDRESS 0x31
+#define LOX3_ADDRESS 0x32
+
+// set the pins to shutdown
+#define SHT_LOX1 41
+#define SHT_LOX2 40
+#define SHT_LOX3 39
+
+// objects for the vl53l0x
+Adafruit_VL53L0X lox1 = Adafruit_VL53L0X();
+Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
+Adafruit_VL53L0X lox3 = Adafruit_VL53L0X();
+
+// this holds the measurement
+VL53L0X_RangingMeasurementData_t measure1;
+VL53L0X_RangingMeasurementData_t measure2;
+VL53L0X_RangingMeasurementData_t measure3;
 
 #define LEDC_RESOLUTION_BITS 14
 #define LEDC_RESOLUTION ((1 << LEDC_RESOLUTION_BITS) - 1)
@@ -39,7 +55,7 @@ bool ledsig = false;
 
 const int encoderPIN1[4] = {4, 5, 6, 7}; // channel 1 for 4 encoders
 const int motorPINEN[4] = {15, 16, 17, 18}; // motor EN PWM pins
-const int motorPINDIR[4] = {8, 3, 46, 9}; // motor DIR pins
+const int motorPINDIR[4] = {20, 3, 46, 21}; // motor DIR pins
 
 volatile long ticksPerInterval[4] = {0, 0, 0, 0};
 
@@ -67,6 +83,93 @@ void IRAM_ATTR encoderISR0() { ticksPerInterval[0] += motorDir[0];}
 void IRAM_ATTR encoderISR1() { ticksPerInterval[1] += motorDir[1];}
 void IRAM_ATTR encoderISR2() { ticksPerInterval[2] += motorDir[2];}
 void IRAM_ATTR encoderISR3() { ticksPerInterval[3] += motorDir[3];}
+
+void setID() {
+  // all reset
+  digitalWrite(SHT_LOX1, LOW);    
+  digitalWrite(SHT_LOX2, LOW);
+  digitalWrite(SHT_LOX3, LOW);
+  delay(10);
+  // all unreset
+  digitalWrite(SHT_LOX1, HIGH);
+  digitalWrite(SHT_LOX2, HIGH);
+  digitalWrite(SHT_LOX3, HIGH);
+  delay(10);
+
+  // activating LOX1 and resetting LOX2
+  digitalWrite(SHT_LOX1, HIGH);
+  digitalWrite(SHT_LOX2, LOW);
+  digitalWrite(SHT_LOX3, LOW);
+
+  // initing LOX1
+  if(!lox1.begin(LOX1_ADDRESS)) {
+    Serial.println(F("Failed to boot first VL53L0X"));
+
+    while(1);
+  }
+  delay(10);
+
+  // activating LOX2
+  digitalWrite(SHT_LOX2, HIGH);
+  delay(10);
+
+  //initing LOX2
+  if(!lox2.begin(LOX2_ADDRESS)) {
+    Serial.println(F("Failed to boot second VL53L0X"));
+    while(1);
+  }
+
+  // activating LOX3
+  digitalWrite(SHT_LOX3, HIGH);
+  delay(10);
+
+  if(!lox3.begin(LOX3_ADDRESS)) {
+    Serial.println(F("Failed to boot Third VL53L0X"));
+    while(1);
+  }
+
+
+}
+
+void read_tof() {
+  
+  lox1.rangingTest(&measure1, false); // pass in 'true' to get debug data printout!
+  lox2.rangingTest(&measure2, false); // pass in 'true' to get debug data printout!
+  lox3.rangingTest(&measure3, false); // pass in 'true' to get debug data printout!
+
+  // print sensor one reading
+  Serial.print(F("1: "));
+  if(measure1.RangeStatus != 4) {     // if not out of range
+    Serial.println(measure1.RangeMilliMeter);
+  } else {
+    Serial.println(F("Out of range"));
+  }
+  
+  Serial.print(F(" "));
+
+  // print sensor two reading
+  Serial.print(F("2: "));
+  if(measure2.RangeStatus != 4) {
+    Serial.println(measure2.RangeMilliMeter);
+  } else {
+    Serial.println(F("Out of range"));
+  }
+
+
+  Serial.print(F(" "));
+
+  // print sensor two reading
+  Serial.print(F("3: "));
+  if(measure3.RangeStatus != 4) {
+    Serial.println(measure3.RangeMilliMeter);
+  } else {
+    Serial.println(F("Out of range"));
+  }
+
+  
+  Serial.println();
+}
+
 
 
 void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
@@ -253,30 +356,47 @@ void setup() {
 
   // timer configurations
   Serial.begin(115200);
+  while (! Serial) { delay(1); }
+
+  pinMode(SHT_LOX1, OUTPUT);
+  pinMode(SHT_LOX2, OUTPUT);
+  pinMode(SHT_LOX3, OUTPUT);
+
+  Serial.println(F("Shutdown pins inited..."));
+
+  // digitalWrite(SHT_LOX1, LOW);
+  // digitalWrite(SHT_LOX2, LOW);
+  // digitalWrite(SHT_LOX3, LOW);
+
+  Serial.println(F("Both in reset mode...(pins are low)"));
+  
+  
+  Serial.println(F("Starting..."));
+  setID();
 
   // setup encoder pins and interrupt
-  // //****************PIN Setup*************//
+  //****************PIN Setup*************//
   for (int i = 0; i < 4; i++){
     pinMode(encoderPIN1[i], INPUT);
     attachInterrupt(digitalPinToInterrupt(encoderPIN1[i]), i == 0 ? encoderISR0
     :(i == 1 ? encoderISR1 : (i == 2 ? encoderISR2 : encoderISR3)), CHANGE);
   }
 
-  // PWM EN Pins
+  // // PWM EN Pins
   ledcAttach(motorPINEN[0], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
   ledcAttach(motorPINEN[1], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
   ledcAttach(motorPINEN[2], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
   ledcAttach(motorPINEN[3], LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
 
-  // DIR Pins
+  // // DIR Pins
   pinMode(motorPINDIR[0], OUTPUT);
   pinMode(motorPINDIR[1], OUTPUT);
   pinMode(motorPINDIR[2], OUTPUT);
   pinMode(motorPINDIR[3], OUTPUT);
-  // //****************PIN Setup*************//
+  // // //****************PIN Setup*************//
 
 
-  //****************WIFI*************//
+  // //****************WIFI*************//
   // Connectting to WiFi in AP mode
   WiFi.softAP(ssid, password);
   Serial.print("Access Point IP: ");
@@ -346,7 +466,7 @@ void handleSetDirection() {
 
 
 void loop() {
-
+  read_tof();
   float lin_vel = 0.0;
   float ang_vel = 0.0;
   // put your main code here, to run repeatedly:
