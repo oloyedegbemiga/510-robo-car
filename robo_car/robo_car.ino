@@ -49,7 +49,7 @@ volatile long motorDir[4] = {1, 1, 1, 1};
 
 // Rad/seconds
 volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
-volatile float kpMotor[4] = {5, 12, 12, 12};
+volatile float kpMotor[4] = {12, 12, 12, 12};
 volatile float kpMotorAng[4] = {2, 2, 2, 2};
 
 
@@ -132,16 +132,19 @@ void controlMotor(float lin_vel, float ang_vel) {
     // if (i == 0){
     //   Serial.println(tick);
     // }
-
+    // every 34 ticks represents 1 
     tick = tick / (34.0);
     // if (i == 0){
     //   Serial.println(tick);
     // }
-    // Serial.println(tick);
+    Serial.print("tick: ");
+    Serial.println(tick);
     // each tick is 30 degrees
     float rad = tick * 30 * PI / 180;
-   
-    // Serial.println(rad);
+
+    Serial.print("rad: ");
+
+    Serial.println(rad);
     // Serial.println(time_diff);
 
     float ang_vel = rad / (time_diff/1000.0);
@@ -200,26 +203,19 @@ void controlMotor(float lin_vel, float ang_vel) {
     Serial.println(currentWheelPwm[i]);
     
     if (motorVelSetpoint[i] > 0) {
-      if (i == 0 || i == 1) {
-        digitalWrite(motorPINDIR[i], HIGH);
-        motorDir[i] = 1;
+     
+      digitalWrite(motorPINDIR[i], HIGH);
+      motorDir[i] = 1;
 
-      } else {
-        digitalWrite(motorPINDIR[i], LOW);
-        motorDir[i] = -1;
-
-      }
+     
       
     } else if (motorVelSetpoint[i] < 0) {
-      if (i == 2 || i == 3) {
-        digitalWrite(motorPINDIR[i], HIGH);
-        motorDir[i] = 1;
+      
+      digitalWrite(motorPINDIR[i], LOW);
+      motorDir[i] = -1;
 
-      } else {
-        digitalWrite(motorPINDIR[i], LOW);
-        motorDir[i] = -1;
-
-      }
+      
+      
       // digitalWrite(motorPINDIR[i], LOW);
       // motorDir[i] = -1;
     }
@@ -227,10 +223,14 @@ void controlMotor(float lin_vel, float ang_vel) {
       ledcWrite(motorPINEN[i], 2000);
 
     } else {
-      if ( i == 0 || i == 1) {
+      if (abs(ang_vel) < .01) {
         ledcWrite(motorPINEN[i], currentWheelPwm[1]);
       } else {
-        ledcWrite(motorPINEN[i], currentWheelPwm[3]);
+        if ( i == 0 || i == 1) {
+          ledcWrite(motorPINEN[i], currentWheelPwm[1]);
+        } else if (i == 2 || i == 3) {
+          ledcWrite(motorPINEN[i], currentWheelPwm[3]);
+        }
       }
     
       
