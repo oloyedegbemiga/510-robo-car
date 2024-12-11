@@ -438,23 +438,23 @@ void wall_follow() {
     // TODO: Iterate i++
 
   }
-  if (measure1.RangeMilliMeter < left_margin && measure1.RangeMilliMeter > right_margin) {
+  // if (measure1.RangeMilliMeter < left_margin && measure1.RangeMilliMeter > right_margin) {
     
-    motorControl[1] = 0;
+  //   motorControl[1] = 0;
     
-  } else if( measure1.RangeMilliMeter > left_margin) {
-    if (!motorControl[0] == 0) {
-      motorControl[1] = -.1;
-    }
+  // } else if( measure1.RangeMilliMeter > left_margin) {
+  //   if (!motorControl[0] == 0) {
+  //     motorControl[1] = -.1;
+  //   }
    
     
-  } else if (measure1.RangeMilliMeter <  right_margin) {
-    if (!motorControl[0] == 0) {
+  // } else if (measure1.RangeMilliMeter <  right_margin) {
+  //   if (!motorControl[0] == 0) {
 
-      motorControl[1] = +.1;
-    }
+  //     motorControl[1] = +.1;
+  //   }
 
-  }
+  // }
 
 
   delay(50);
