@@ -35,6 +35,12 @@ VL53L0X_RangingMeasurementData_t measure2;
 VL53L0X_RangingMeasurementData_t measure3;
 // ########### TOF ############ // 
 
+// ##### WALL FOLLOWING ###### //
+// TODO: Figure out the thresholds
+int front_tof_threshold[4] = {400, 400, 400, 400};
+
+// ##### WALL FOLLOWING ###### //
+
 
 #define LEDC_RESOLUTION_BITS 14
 #define LEDC_RESOLUTION ((1 << LEDC_RESOLUTION_BITS) - 1)
@@ -46,7 +52,7 @@ VL53L0X_RangingMeasurementData_t measure3;
 #define PI 3.14159265358979323846
 
 
-#define KD -.005
+#define KD -.01
 //*******WIFI***********//
 // WiFi Credentials
 const char *ssid = "Bulma";
@@ -76,7 +82,7 @@ volatile long motorDir[4] = {1, 1, 1, 1};
 
 // Rad/seconds
 volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
-volatile float kpMotor[4] = {14, 14, 14, 14};
+volatile float kpMotor[4] = {50, 50, 50, 50};
 volatile float kpMotorAng[4] = {2, 2, 2, 2};
 
 
@@ -388,7 +394,49 @@ void controlMotor(float lin_vel, float ang_vel) {
 
 void wall_follow() {
   Serial.println("IM FOLLOWING THE WALL!");
+  motorControl[0] = 0;
+  motorControl[1] = 0;
+  motorControl[2] = 0.0;
   // We are assuming initial position is constant
+  static const int left_margin = 300;
+  static const int right_margin = 200;
+  Serial.print("Front Sensor: ");
+  Serial.println(measure2.RangeMilliMeter);
+  Serial.print("Right Sensor: ");
+  Serial.println(measure1.RangeMilliMeter);
+
+  // TODO: Set i based off of iteration;
+  int i = 0;
+  if (measure2.RangeMilliMeter > front_tof_threshold[i]) {
+    motorControl[0] = 1;
+    motorControl[1] = 0;
+    motorControl[2] = 60.0;
+  } else {
+    motorControl[0] = 0;
+    motorControl[1] = 0;
+    motorControl[2] = 0;
+    // TODO: Turn 90 Degrees Left
+    // TODO: Iterate i++
+
+  }
+  if (measure1.RangeMilliMeter < left_margin && measure1.RangeMilliMeter > right_margin) {
+    
+    motorControl[1] = 0;
+    
+  } else if( measure1.RangeMilliMeter > left_margin) {
+    if (!motorControl[0] == 0) {
+      motorControl[1] = -.1;
+    }
+   
+    
+  } else if (measure1.RangeMilliMeter <  right_margin) {
+    if (!motorControl[0] == 0) {
+
+      motorControl[1] = +.1;
+    }
+
+  }
+
 
   delay(50);
 }
@@ -537,12 +585,12 @@ void loop() {
   
 
   Serial.println(robot_mode_);
-  // if (robot_mode_ == WALL_FOLLOW) {
-  //   wall_follow();
+  if (robot_mode_ == WALL_FOLLOW) {
+    wall_follow();
   
-  // } else if (robot_mode_ == TARGET) {
-  //   target_auto();
-  // }
+  } else if (robot_mode_ == TARGET) {
+    target_auto();
+  }
   server.handleClient();
   float lin_vel = 0.0;
   float ang_vel = 0.0;
@@ -552,12 +600,12 @@ void loop() {
 
   //****************WIFI*************//
 
-  // Serial.println("###############");
-  // Serial.println("User Input: ");
-  // for (int i = 0; i < 3; i++) {
-  //   Serial.println(motorControl[i]);
-  // }
-  // Serial.println("\n");
+  Serial.println("###############");
+  Serial.println("User Input: ");
+  for (int i = 0; i < 3; i++) {
+    Serial.println(motorControl[i]);
+  }
+  Serial.println("\n");
 
   // Set the direction of each motor from the input
 
@@ -577,10 +625,10 @@ void loop() {
 
   }
 
-  // Serial.print("Linear Vel: ");
-  // Serial.println(lin_vel);
-  // Serial.print("Angular Vel: ");
-  // Serial.println(ang_vel);
+  Serial.print("Linear Vel: ");
+  Serial.println(lin_vel);
+  Serial.print("Angular Vel: ");
+  Serial.println(ang_vel);
   //****************WIFI*************//
 
   calcMotorVelSetpoint(lin_vel, ang_vel);
