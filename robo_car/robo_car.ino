@@ -37,7 +37,7 @@ VL53L0X_RangingMeasurementData_t measure3;
 
 // ##### WALL FOLLOWING ###### //
 // TODO: Figure out the thresholds
-int front_tof_threshold[4] = {400, 400, 400, 400};
+int front_tof_threshold[4] = {600, 500, 500, 500};
 
 // ##### WALL FOLLOWING ###### //
 
@@ -351,9 +351,9 @@ void controlMotor(float lin_vel, float ang_vel) {
         if ( i == 0 || i == 1) {
           int val;
           if (ang_vel > 0) {
-            val = currentWheelPwm[1] + 1500;
+            val = currentWheelPwm[1] + 2500;
           } else {
-            val = currentWheelPwm[1] - 1500;
+            val = currentWheelPwm[1] - 2500;
           }
           if (val > 16383) {
             val =  16383;
@@ -364,9 +364,9 @@ void controlMotor(float lin_vel, float ang_vel) {
         } else if (i == 2 || i == 3) {
           int val;
           if (ang_vel > 0) {
-            val = currentWheelPwm[1] - 1500;
+            val = currentWheelPwm[1] - 2500;
           } else {
-            val = currentWheelPwm[1] + 1500;
+            val = currentWheelPwm[1] + 2500;
           }
           if (val > 16383) {
             val =  16383;
@@ -391,6 +391,23 @@ void controlMotor(float lin_vel, float ang_vel) {
 
 }
 
+void turn_left() {
+  static int iter = 0;
+  // int steps_for_turn = 10;
+  while (measure2.RangeMilliMeter < 600) {
+    motorControl[0] = 0;
+    motorControl[1] = .1;
+    motorControl[2] = 0.0;
+    float lin_vel_ = motorControl[0] * motorControl[2]/100.0;
+    float ang_vel_ = motorControl[1];
+    calcMotorVelSetpoint(lin_vel_, ang_vel_);
+    controlMotor(lin_vel_, ang_vel_);
+    read_tof();
+    delay(50);
+    iter++;
+  }
+  iter = 0;
+}
 
 void wall_follow() {
   Serial.println("IM FOLLOWING THE WALL!");
@@ -398,8 +415,8 @@ void wall_follow() {
   motorControl[1] = 0;
   motorControl[2] = 0.0;
   // We are assuming initial position is constant
-  static const int left_margin = 300;
-  static const int right_margin = 200;
+  static const int left_margin = 250;
+  static const int right_margin =200;
   Serial.print("Front Sensor: ");
   Serial.println(measure2.RangeMilliMeter);
   Serial.print("Right Sensor: ");
@@ -415,6 +432,8 @@ void wall_follow() {
     motorControl[0] = 0;
     motorControl[1] = 0;
     motorControl[2] = 0;
+    turn_left();
+    
     // TODO: Turn 90 Degrees Left
     // TODO: Iterate i++
 
