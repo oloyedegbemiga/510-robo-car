@@ -5,6 +5,15 @@
 #include "html510.h"
 #include "Adafruit_VL53L0X.h"
 
+enum RobotMode {
+  MANUAL,
+  WALL_FOLLOW,
+  TARGET
+};
+
+enum RobotMode robot_mode_ = MANUAL;
+
+// ########### TOF ############ // 
 // address we will assign if dual sensor is present
 #define LOX1_ADDRESS 0x30
 #define LOX2_ADDRESS 0x31
@@ -24,6 +33,8 @@ Adafruit_VL53L0X lox3 = Adafruit_VL53L0X();
 VL53L0X_RangingMeasurementData_t measure1;
 VL53L0X_RangingMeasurementData_t measure2;
 VL53L0X_RangingMeasurementData_t measure3;
+// ########### TOF ############ // 
+
 
 #define LEDC_RESOLUTION_BITS 14
 #define LEDC_RESOLUTION ((1 << LEDC_RESOLUTION_BITS) - 1)
@@ -38,7 +49,7 @@ VL53L0X_RangingMeasurementData_t measure3;
 #define KD -.01
 //*******WIFI***********//
 // WiFi Credentials
-const char *ssid = "Robocar";
+const char *ssid = "Bulma";
 const char *password = "12345678";
 // Web server on port 80
 WebServer server(80);
@@ -84,6 +95,7 @@ void IRAM_ATTR encoderISR1() { ticksPerInterval[1] += motorDir[1];}
 void IRAM_ATTR encoderISR2() { ticksPerInterval[2] += motorDir[2];}
 void IRAM_ATTR encoderISR3() { ticksPerInterval[3] += motorDir[3];}
 
+// ########### TOF ############ // 
 void setID() {
   // all reset
   digitalWrite(SHT_LOX1, LOW);    
@@ -169,6 +181,7 @@ void read_tof() {
   
   Serial.println();
 }
+// ########### TOF ############ // 
 
 
 
@@ -296,12 +309,7 @@ void controlMotor(float lin_vel, float ang_vel) {
     currentWheelPwm[i] = currentWheelPwm[i] + u;
     
 
-    // Clamping
-    if (currentWheelPwm[i] > 16383){
-      currentWheelPwm[i] = 16383;
-    } else if(currentWheelPwm[i] < 0) {
-      currentWheelPwm[i] = 0;
-    }
+    
     Serial.print("U Control Signal: ");
     Serial.println(currentWheelPwm[i]);
     
@@ -329,10 +337,47 @@ void controlMotor(float lin_vel, float ang_vel) {
       if (abs(ang_vel) < .01) {
         ledcWrite(motorPINEN[i], currentWheelPwm[1]);
       } else {
-        if ( i == 0 || i == 1) {
-          ledcWrite(motorPINEN[i], currentWheelPwm[1]);
-        } else if (i == 2 || i == 3) {
-          ledcWrite(motorPINEN[i], currentWheelPwm[3]);
+        if (ang_vel > 0) {
+          if ( i == 0 || i == 1) {
+            // Clamping
+            int val = currentWheelPwm[1]-1000 * (abs(ang_vel));
+            if (val > 16383){
+              val = 16383;
+            } else if(val< 0) {
+              val = 0;
+            }
+            ledcWrite(motorPINEN[i], val);
+          } else if (i == 2 || i == 3) {
+            // Clamping
+            int val = currentWheelPwm[1]+1000 * (abs(ang_vel));
+            if (val > 16383){
+              val = 16383;
+            } else if(val < 0) {
+              val = 0;
+            }
+            ledcWrite(motorPINEN[i], val);
+          }
+        } else {
+          if ( i == 0 || i == 1) {
+            // Clamping
+            int val = currentWheelPwm[1]+1000 * (abs(ang_vel));
+            if (val > 16383){
+              val = 16383;
+            } else if(val < 0) {
+              val = 0;
+            }
+            ledcWrite(motorPINEN[i], val);
+          } else if (i == 2 || i == 3) {
+            // Clamping
+            int val = currentWheelPwm[1]-1000 * (abs(ang_vel));
+            if (val > 16383){
+              val = 16383;
+            } else if(val < 0) {
+              val = 0;
+            }
+            ledcWrite(motorPINEN[i], val);
+          }
+
         }
       }
     
@@ -350,6 +395,17 @@ void controlMotor(float lin_vel, float ang_vel) {
 
 }
 
+void wall_follow() {
+  Serial.println("IM FOLLOWING THE WALL!");
+  // We are assuming initial position is constant
+
+  delay(50);
+}
+
+void target_auto() {
+  Serial.println("IM FOLLOWING MY TARGETS");
+  delay(50);
+}
 
 void setup() {
   // put your setup code here, to run once:
@@ -421,12 +477,16 @@ void handleRoot() {
 
 // Setting motor speed
 void handleSetSpeed() {
-  if (server.hasArg("value")) {
-    motorControl[2] = server.arg("value").toInt();
-    Serial.print("Speed set to: ");
-    Serial.println(motorControl[2]);
+  if (robot_mode_ == MANUAL) {
+    if (server.hasArg("value")) {
+      motorControl[2] = server.arg("value").toInt();
+      Serial.print("Speed set to: ");
+      Serial.println(motorControl[2]);
+      // delay(1000);
+    }
+    server.send(204);
   }
-  server.send(204);
+  
 }
 
 // Setting motor direction 
@@ -434,29 +494,45 @@ void handleSetDirection() {
   if (server.hasArg("dir")) {
     int dir = server.arg("dir").toInt();
     if (dir == 2) {
+      robot_mode_ = MANUAL;
       motorControl[1] += 0.1;  // Decrementing by 0.25 - Left
 
       // motorControl[0] = 0;
       // motorControl[2] = 0;
 
     } else if (dir == 3) {
+      robot_mode_ = MANUAL;
       motorControl[1] -= 0.1;  // Increment by 0.25 - Right
       // motorControl[0] = 0;
       // motorControl[2] = 0;
     }
     else if (dir == 1){
+      robot_mode_ = MANUAL;
       motorControl[0] = 1; // Up
     }
     else if (dir == -1){
+      robot_mode_ = MANUAL;
       motorControl[0] = -1; // Down
     }
     else if (dir == 0){
+      robot_mode_ = MANUAL;
       motorControl[0] = 0; // Stop
       motorControl[1] = 0;
       // motorControl[2] = 0;
-
-
-      
+    } else if (dir == 4) {
+      robot_mode_ = MANUAL;
+    } else if (dir == 5) {
+      robot_mode_ = WALL_FOLLOW;
+      motorControl[0] = 0;
+      motorControl[1] = 0;
+      motorControl[2] = 0;
+      // delay(50);
+    } else if (dir == 6) {
+      robot_mode_ = TARGET;
+      motorControl[0] = 0;
+      motorControl[1] = 0;
+      motorControl[2] = 0;
+      // delay(50);
     }
 
   }
@@ -467,6 +543,16 @@ void handleSetDirection() {
 
 void loop() {
   read_tof();
+  
+
+  Serial.println(robot_mode_);
+  // if (robot_mode_ == WALL_FOLLOW) {
+  //   wall_follow();
+  
+  // } else if (robot_mode_ == TARGET) {
+  //   target_auto();
+  // }
+  server.handleClient();
   float lin_vel = 0.0;
   float ang_vel = 0.0;
   // put your main code here, to run repeatedly:
@@ -474,14 +560,13 @@ void loop() {
   // moveMotor(1, 1);
 
   //****************WIFI*************//
-  server.handleClient();
 
-  Serial.println("###############");
-  Serial.println("User Input: ");
-  for (int i = 0; i < 3; i++) {
-    Serial.println(motorControl[i]);
-  }
-  Serial.println("\n");
+  // Serial.println("###############");
+  // Serial.println("User Input: ");
+  // for (int i = 0; i < 3; i++) {
+  //   Serial.println(motorControl[i]);
+  // }
+  // Serial.println("\n");
 
   // Set the direction of each motor from the input
 
@@ -501,10 +586,10 @@ void loop() {
 
   }
 
-  Serial.print("Linear Vel: ");
-  Serial.println(lin_vel);
-  Serial.print("Angular Vel: ");
-  Serial.println(ang_vel);
+  // Serial.print("Linear Vel: ");
+  // Serial.println(lin_vel);
+  // Serial.print("Angular Vel: ");
+  // Serial.println(ang_vel);
   //****************WIFI*************//
 
   calcMotorVelSetpoint(lin_vel, ang_vel);
