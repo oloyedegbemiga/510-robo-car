@@ -42,11 +42,11 @@ VL53L0X_RangingMeasurementData_t measure3;
 
 // Meters
 #define HALF_WHEEL_BASE_B 0.13
-#define WHEEL_RADIUS .07
+#define WHEEL_RADIUS .035
 #define PI 3.14159265358979323846
 
 
-#define KD -.01
+#define KD -.005
 //*******WIFI***********//
 // WiFi Credentials
 const char *ssid = "Bulma";
@@ -76,7 +76,7 @@ volatile long motorDir[4] = {1, 1, 1, 1};
 
 // Rad/seconds
 volatile float motorVelSetpoint[4] = {0.0, 0.0, 0.0, 0.0};
-volatile float kpMotor[4] = {12, 12, 12, 12};
+volatile float kpMotor[4] = {14, 14, 14, 14};
 volatile float kpMotorAng[4] = {2, 2, 2, 2};
 
 
@@ -291,10 +291,10 @@ void controlMotor(float lin_vel, float ang_vel) {
   for (int i = 0; i < 4; i++) {
     error[i] =  abs(motorVelSetpoint[i]) - abs(currentWheelAngVel[i]);
     acceleration[i] = 1000 * (abs(currentWheelAngVel[i]) - abs(prev_tick_dot[i] / time_diff));
-    Serial.print("D term: ");
-    Serial.println(acceleration[i]*KD);
-    Serial.print("P term: ");
-    Serial.println(error[i]*kpMotor[i]);
+    // Serial.print("D term: ");
+    // Serial.println(acceleration[i]*KD);
+    // Serial.print("P term: ");
+    // Serial.println(error[i]*kpMotor[i]);
     float u = kpMotor[i] * error[i] + KD* acceleration[i];
     // if (motorVelSetpoint[0] != motorVelSetpoint[2]) {
     //   // Rotating
@@ -309,7 +309,12 @@ void controlMotor(float lin_vel, float ang_vel) {
     currentWheelPwm[i] = currentWheelPwm[i] + u;
     
 
-    
+    // Clamping
+    if (currentWheelPwm[i] > 16383){
+      currentWheelPwm[i] = 16383;
+    } else if(currentWheelPwm[i] < 0) {
+      currentWheelPwm[i] = 0;
+    }
     Serial.print("U Control Signal: ");
     Serial.println(currentWheelPwm[i]);
     
@@ -331,53 +336,38 @@ void controlMotor(float lin_vel, float ang_vel) {
       // motorDir[i] = -1;
     }
     if (abs(lin_vel) < .01) {
-      ledcWrite(motorPINEN[i], 2000);
+      ledcWrite(motorPINEN[i], 4000);
 
     } else {
       if (abs(ang_vel) < .01) {
         ledcWrite(motorPINEN[i], currentWheelPwm[1]);
       } else {
-        if (ang_vel > 0) {
-          if ( i == 0 || i == 1) {
-            // Clamping
-            int val = currentWheelPwm[1]-1000 * (abs(ang_vel));
-            if (val > 16383){
-              val = 16383;
-            } else if(val< 0) {
-              val = 0;
-            }
-            ledcWrite(motorPINEN[i], val);
-          } else if (i == 2 || i == 3) {
-            // Clamping
-            int val = currentWheelPwm[1]+1000 * (abs(ang_vel));
-            if (val > 16383){
-              val = 16383;
-            } else if(val < 0) {
-              val = 0;
-            }
-            ledcWrite(motorPINEN[i], val);
+        if ( i == 0 || i == 1) {
+          int val;
+          if (ang_vel > 0) {
+            val = currentWheelPwm[1] + 1500;
+          } else {
+            val = currentWheelPwm[1] - 1500;
           }
-        } else {
-          if ( i == 0 || i == 1) {
-            // Clamping
-            int val = currentWheelPwm[1]+1000 * (abs(ang_vel));
-            if (val > 16383){
-              val = 16383;
-            } else if(val < 0) {
-              val = 0;
-            }
-            ledcWrite(motorPINEN[i], val);
-          } else if (i == 2 || i == 3) {
-            // Clamping
-            int val = currentWheelPwm[1]-1000 * (abs(ang_vel));
-            if (val > 16383){
-              val = 16383;
-            } else if(val < 0) {
-              val = 0;
-            }
-            ledcWrite(motorPINEN[i], val);
+          if (val > 16383) {
+            val =  16383;
+          } else if (val < 0) {
+            val = 0;
           }
-
+          ledcWrite(motorPINEN[i], val);
+        } else if (i == 2 || i == 3) {
+          int val;
+          if (ang_vel > 0) {
+            val = currentWheelPwm[1] - 1500;
+          } else {
+            val = currentWheelPwm[1] + 1500;
+          }
+          if (val > 16383) {
+            val =  16383;
+          } else if (val < 0) {
+            val = 0;
+          }
+          ledcWrite(motorPINEN[i], val);
         }
       }
     
@@ -394,6 +384,7 @@ void controlMotor(float lin_vel, float ang_vel) {
   previous_timestamp = current_timestamp;
 
 }
+
 
 void wall_follow() {
   Serial.println("IM FOLLOWING THE WALL!");
@@ -477,7 +468,7 @@ void handleRoot() {
 
 // Setting motor speed
 void handleSetSpeed() {
-  if (robot_mode_ == MANUAL) {
+  // if (robot_mode_ == MANUAL) {
     if (server.hasArg("value")) {
       motorControl[2] = server.arg("value").toInt();
       Serial.print("Speed set to: ");
@@ -485,7 +476,7 @@ void handleSetSpeed() {
       // delay(1000);
     }
     server.send(204);
-  }
+  // }
   
 }
 
@@ -495,14 +486,14 @@ void handleSetDirection() {
     int dir = server.arg("dir").toInt();
     if (dir == 2) {
       robot_mode_ = MANUAL;
-      motorControl[1] += 0.1;  // Decrementing by 0.25 - Left
+      motorControl[1] += 0.1;  // Incrementing by 0.25 - Left
 
       // motorControl[0] = 0;
       // motorControl[2] = 0;
 
     } else if (dir == 3) {
       robot_mode_ = MANUAL;
-      motorControl[1] -= 0.1;  // Increment by 0.25 - Right
+      motorControl[1] -= 0.1;  // Decrement by 0.25 - Right
       // motorControl[0] = 0;
       // motorControl[2] = 0;
     }
