@@ -181,7 +181,7 @@ WebServer server(80);
 // Motor control values array
 float motorControl[3] = {0.0, 0.0, 0.0}; 
 // PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4000, 0}};
-PositionData waypoints[4] = {{-3000, 0, 0}, {-3000, -400, 0}, {-2300, -400, 0}, {-4600, -400, 0}};
+PositionData waypoints[4] = {{-3000, 0, 0}, {-3000, -400, 0}, {-2300, -400, 0}, {-4500, -600, 0}};
 
 //*******WIFI***********//
 
@@ -525,6 +525,12 @@ void turn_left() {
     delay(50);
     iter++;
   }
+  if (measure2.RangeMilliMeter < 700 &&  measure1.RangeMilliMeter > 275) {
+    motorControl[0] = 0;
+    motorControl[1] = -.1;
+    motorControl[2] = 0.0;
+
+  }
   iter = 0;
 }
 
@@ -546,22 +552,30 @@ void wall_follow() {
   if (measure2.RangeMilliMeter > front_tof_threshold[i]) {
     motorControl[0] = 1;
     motorControl[1] = 0;
-    motorControl[2] = 60.0;
-  } else {
+    motorControl[2] = 50.0;
+  } else if (measure2.RangeMilliMeter < front_tof_threshold[i]){
     motorControl[0] = 0;
     motorControl[1] = 0;
     motorControl[2] = 0;
     turn_left();
-    
-    // TODO: Turn 90 Degrees Left
-    // TODO: Iterate i++
+
+  } else if (measure2.RangeMilliMeter > 600) {
+    motorControl[0] = 0;
+    motorControl[1] = -.1;
+    motorControl[2] = 0;
 
   }
+
+
+
 
   delay(50);
 }
 
 bool goTo(int16_t x_goal, int16_t y_goal) {
+  static bool turning_mode = 0;
+  static int16_t x_temp = 0;
+  static int16_t y_temp = 0;
   Serial.print("X goal offset: ");
   Serial.println(x_goal);
   Serial.print("Y goal offset: ");
@@ -592,7 +606,7 @@ bool goTo(int16_t x_goal, int16_t y_goal) {
   Serial.print("ang_diff: ");
   Serial.println(ang_diff);
 
-  float ang_threshold = 5;
+  float ang_threshold = 12.0;
   float distance_threshold = 150;
   float distance_ = sqrt((dx*dx)+ (dy*dy));
   Serial.print("Distance_: ");
@@ -602,6 +616,22 @@ bool goTo(int16_t x_goal, int16_t y_goal) {
   }
 
   if (abs(ang_diff) > ang_threshold) {
+    if (turning_mode == 0) {
+      x_temp = state_.x;
+      y_temp = state_.y;
+
+      turning_mode = 1;
+    }
+    GetPosition();
+    dx = x_goal - x_temp;
+    dy = y_goal - y_temp;
+    ang_tan2 = (atan2(dy, dx) * 180 / PI) ; 
+    if (ang_tan2 < 0) {
+      ang_tan2 = 360 + ang_tan2;
+    }
+    ang_diff = ang_tan2 - state_.yaw;  
+    
+
     if (state_.yaw < ang_tan2) {
       motorControl[0] = 1;
       motorControl[1] = .1;
@@ -613,9 +643,12 @@ bool goTo(int16_t x_goal, int16_t y_goal) {
       motorControl[2] = 0;
 
     }
+   
     
     return false;
   } else  {
+    turning_mode = 0;
+    // if (turning_mode == )
     float distance = sqrt((dx*dx)+ (dy*dy));
     Serial.print("Distance: ");
     Serial.println(distance);
