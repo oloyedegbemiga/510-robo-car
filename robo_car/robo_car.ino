@@ -4,6 +4,8 @@
 #include "index.h"
 #include "html510.h"
 #include "Adafruit_VL53L0X.h"
+#include "vive510.h"
+#include <math.h>
 
 enum RobotMode {
   MANUAL,
@@ -12,6 +14,118 @@ enum RobotMode {
 };
 
 enum RobotMode robot_mode_ = MANUAL;
+// ########### VIVE ############ // 
+#define VIVE_PIN1 37 // pin receiving signal from Vive circuit 1 
+#define VIVE_PIN2 38 // pin receiving signal from Vive circuit 2
+
+Vive510 vive1(VIVE_PIN1);
+Vive510 vive2(VIVE_PIN2);
+
+uint32_t med3filt(uint32_t a, uint32_t b, uint32_t c) {
+  uint32_t middle;
+  if ((a <= b) && (a <= c))
+    middle = (b <= c) ? b : c;  
+  else if ((b <= a) && (b <= c))
+    middle = (a <= c) ? a : c;
+  else    middle = (a <= b) ? a : b;
+  return middle;
+}
+struct PositionData {
+  uint16_t x=0;
+  uint16_t y=0;
+  float yaw=0;
+};
+
+struct PositionData state_;
+
+
+void GetPosition() {
+  static uint16_t x1, y1, x2, y2;
+  static float yaw; 
+  
+  // Read data from the first Vive tracker
+  if (vive1.status() == VIVE_RECEIVING) {
+    static uint16_t x0_1, y0_1, oldx1_1, oldx2_1, oldy1_1, oldy2_1;
+    oldx2_1 = oldx1_1; oldy2_1 = oldy1_1;
+    oldx1_1 = x0_1;     oldy1_1 = y0_1;
+
+    x0_1 = vive1.xCoord();
+    y0_1 = vive1.yCoord();
+    x1 = med3filt(x0_1, oldx1_1, oldx2_1);
+    y1 = med3filt(y0_1, oldy1_1, oldy2_1);
+
+    if (x1 > 8000 || y1 > 8000 || x1 < 1000 || y1 < 1000) {
+      x1 = 0; y1 = 0;
+    }
+  } else {
+    x1 = 0;
+    y1 = 0;
+    vive1.sync(5);
+  }
+    if (vive2.status() == VIVE_RECEIVING) {
+    static uint16_t x0_2, y0_2, oldx1_2, oldx2_2, oldy1_2, oldy2_2;
+    oldx2_2 = oldx1_2; oldy2_2 = oldy1_2;
+    oldx1_2 = x0_2;     oldy1_2 = y0_2;
+
+    x0_2 = vive2.xCoord();
+    y0_2 = vive2.yCoord();
+    x2 = med3filt(x0_2, oldx1_2, oldx2_2);
+    y2 = med3filt(y0_2, oldy1_2, oldy2_2);
+
+    if (x2 > 8000 || y2 > 8000 || x2 < 1000 || y2 < 1000) {
+      x2 = 0; y2 = 0;
+    }
+  } else {
+    x2 = 0;
+    y2 = 0;
+    vive2.sync(5);
+  }
+  // Calculate the yaw angle
+  if (x1 != 0 && y1 != 0 && x2 != 0 && y2 != 0) { // Ensure both trackers have valid data
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    yaw = atan2(dy, dx) * 180 / PI; // Yaw in degrees
+
+    // Normalize the angle to 0-360 degrees
+    if (yaw < 0) {
+      yaw += 360;
+    }
+
+    // Output the yaw angle
+   
+  } else {
+    yaw = 0; // Reset yaw if data is invalid
+    Serial.println("Invalid data for yaw calculation.");
+  }
+
+  // Output the coordinates for both Vive trackers
+  
+
+  state_.x = (uint16_t)(x1 + x2)/2;
+  state_.y = (uint16_t)(y1 + y2)/2;
+  if (yaw > 90) {
+    yaw = yaw - 90;
+  } else {
+    yaw = 360 - (90-yaw);
+  }
+  state_.yaw = yaw;
+
+  Serial.println("POSITION");
+  Serial.print("X: ");
+  Serial.println(state_.x);
+  Serial.print("Y: ");
+  Serial.println(state_.y);
+  Serial.print("YAW: ");
+  Serial.println(state_.yaw);
+
+
+}
+
+
+
+
+// ########### VIVE ############ // 
+
 
 // ########### TOF ############ // 
 // address we will assign if dual sensor is present
@@ -62,7 +176,7 @@ WebServer server(80);
 
 // Motor control values array
 float motorControl[3] = {0.0, 0.0, 0.0}; 
-
+PositionData waypoints[2] = {{3300, 4600, 0}, {3300, 3000, 0}};
 
 //*******WIFI***********//
 
@@ -438,30 +552,76 @@ void wall_follow() {
     // TODO: Iterate i++
 
   }
-  // if (measure1.RangeMilliMeter < left_margin && measure1.RangeMilliMeter > right_margin) {
-    
-  //   motorControl[1] = 0;
-    
-  // } else if( measure1.RangeMilliMeter > left_margin) {
-  //   if (!motorControl[0] == 0) {
-  //     motorControl[1] = -.1;
-  //   }
-   
-    
-  // } else if (measure1.RangeMilliMeter <  right_margin) {
-  //   if (!motorControl[0] == 0) {
-
-  //     motorControl[1] = +.1;
-  //   }
-
-  // }
-
 
   delay(50);
 }
 
+bool goTo(uint16_t x_goal, uint16_t y_goal) {
+  
+  // get current position (state_)
+  // calculate angle difference
+  float dx = x_goal - state_.x;
+  float dy = y_goal - state_.y;
+  float ang_tan2 = (atan2(dy, dx) * 180 / PI) ; 
+  if (ang_tan2 < 0) {
+    ang_tan2 = 360 + ang_tan2;
+  }
+  float ang_diff = ang_tan2 - state_.yaw;
+  Serial.print("ang_tan2: ");
+  Serial.println(ang_tan2);
+  
+  Serial.print("ang_diff: ");
+  Serial.println(ang_diff);
+
+  float ang_threshold = 5;
+  float distance_threshold = 30;
+
+  if (abs(ang_diff) > ang_threshold) {
+    if (state_.yaw < ang_tan2) {
+      motorControl[0] = 1;
+      motorControl[1] = .1;
+      motorControl[2] = 0;
+
+    } else {
+      motorControl[0] = 1;
+      motorControl[1] = -.1;
+      motorControl[2] = 0;
+
+    }
+    
+    return false;
+  } else  {
+    float distance = sqrt((dx*dx)+ (dy*dy));
+    if (abs(distance) > distance_threshold) {
+      motorControl[0] = 1;
+      motorControl[1] = 0;
+      motorControl[2] = 60.0;
+      return false;
+    } else {
+      return true;
+    }
+  }
+}
+int waypoint_iterator = 0;
+
+
 void target_auto() {
   Serial.println("IM FOLLOWING MY TARGETS");
+  motorControl[0] = 0;
+  motorControl[1] = 0;
+  motorControl[2] = 0.0;
+  GetPosition();
+
+  bool success = goTo(waypoints[waypoint_iterator].x, waypoints[waypoint_iterator].y);
+  if (success) {
+    if (waypoint_iterator + 1 < sizeof(waypoints)/sizeof(waypoints[0])) {
+      waypoint_iterator++;
+    } else {
+      Serial.println("Successful Mission!");
+    }
+  } 
+
+
   delay(50);
 }
 
@@ -523,7 +683,25 @@ void setup() {
   // server.on("/setMotorState", HTTP_GET, handleSetMotorState);
   server.begin();
   //****************WIFI*************//
+  //****************VIVE*************//
+  vive1.begin();
+  vive2.begin();
+  delay(2000);
+  Serial.println("Vive trackers started");
+  //****************VIVE*************//
+  // struct PositionData waypoint1;
+  // waypoint1.x = 3300;
+  // waypoint1.y = 4600;
+  // struct PositionData waypoint2;
+  // waypoint1.x = 3300;
+  // waypoint1.y = 4280;
 
+  // waypoints[0] = waypoint1;
+  // waypoints[1] = waypoint2;
+
+  
+
+  
 
 }
 
@@ -601,6 +779,7 @@ void handleSetDirection() {
 
 void loop() {
   read_tof();
+  GetPosition();
   
 
   Serial.println(robot_mode_);
