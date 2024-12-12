@@ -91,32 +91,34 @@ void GetPosition() {
       yaw += 360;
     }
 
+    state_.x = (uint16_t)(x1 + x2)/2;
+    state_.y = (uint16_t)(y1 + y2)/2;
+    if (yaw > 90) {
+      yaw = yaw - 90;
+    } else {
+      yaw = 360 - (90-yaw);
+    }
+    state_.yaw = yaw;
+
+    Serial.println("POSITION");
+    Serial.print("X: ");
+    Serial.println(state_.x);
+    Serial.print("Y: ");
+    Serial.println(state_.y);
+    Serial.print("YAW: ");
+    Serial.println(state_.yaw);
+
     // Output the yaw angle
    
   } else {
-    yaw = 0; // Reset yaw if data is invalid
+    // yaw = 0; // Reset yaw if data is invalid
     Serial.println("Invalid data for yaw calculation.");
   }
 
   // Output the coordinates for both Vive trackers
   
 
-  state_.x = (uint16_t)(x1 + x2)/2;
-  state_.y = (uint16_t)(y1 + y2)/2;
-  if (yaw > 90) {
-    yaw = yaw - 90;
-  } else {
-    yaw = 360 - (90-yaw);
-  }
-  state_.yaw = yaw;
 
-  Serial.println("POSITION");
-  Serial.print("X: ");
-  Serial.println(state_.x);
-  Serial.print("Y: ");
-  Serial.println(state_.y);
-  Serial.print("YAW: ");
-  Serial.println(state_.yaw);
 
 
 }
@@ -176,7 +178,7 @@ WebServer server(80);
 
 // Motor control values array
 float motorControl[3] = {0.0, 0.0, 0.0}; 
-PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4200, 0}};
+PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4000, 0}};
 
 //*******WIFI***********//
 
@@ -577,7 +579,13 @@ bool goTo(uint16_t x_goal, uint16_t y_goal) {
   Serial.println(ang_diff);
 
   float ang_threshold = 5;
-  float distance_threshold = 300;
+  float distance_threshold = 200;
+  float distance_ = sqrt((dx*dx)+ (dy*dy));
+  Serial.print("Distance_: ");
+  Serial.println(distance_);
+  if (abs(distance_) < distance_threshold) {
+    return true;
+  }
 
   if (abs(ang_diff) > ang_threshold) {
     if (state_.yaw < ang_tan2) {
