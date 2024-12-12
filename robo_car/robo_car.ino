@@ -31,12 +31,14 @@ uint32_t med3filt(uint32_t a, uint32_t b, uint32_t c) {
   return middle;
 }
 struct PositionData {
-  uint16_t x=0;
-  uint16_t y=0;
+  int16_t x=0;
+  int16_t y=0;
   float yaw=0;
 };
 
 struct PositionData state_;
+struct PositionData origin_;
+bool origin_initialized_ = 0;
 
 
 void GetPosition() {
@@ -178,7 +180,8 @@ WebServer server(80);
 
 // Motor control values array
 float motorControl[3] = {0.0, 0.0, 0.0}; 
-PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4000, 0}};
+// PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4000, 0}};
+PositionData waypoints[4] = {{-3000, 0, 0}, {-3000, -400, 0}, {-2300, -400, 0}, {-4600, -400, 0}};
 
 //*******WIFI***********//
 
@@ -318,23 +321,23 @@ void calcMotorVelSetpoint(float lin_vel, float ang_vel) {
   motorVelSetpoint[2] = ang_v_left;
   motorVelSetpoint[3] = ang_v_left;
 
-  Serial.println("Motor Setpoints:");
+  // Serial.println("Motor Setpoints:");
 
-  Serial.print("Motor1: ");
-  Serial.print(motorVelSetpoint[0]);
-  Serial.println(" rad/s");
+  // Serial.print("Motor1: ");
+  // Serial.print(motorVelSetpoint[0]);
+  // Serial.println(" rad/s");
 
-  Serial.print("Motor2: ");
-  Serial.print(motorVelSetpoint[1]);
-  Serial.println(" rad/s");
+  // Serial.print("Motor2: ");
+  // Serial.print(motorVelSetpoint[1]);
+  // Serial.println(" rad/s");
 
-  Serial.print("Motor3: ");
-  Serial.print(motorVelSetpoint[2]);
-  Serial.println(" rad/s");
+  // Serial.print("Motor3: ");
+  // Serial.print(motorVelSetpoint[2]);
+  // Serial.println(" rad/s");
 
-  Serial.print("Motor4: ");
-  Serial.print(motorVelSetpoint[3]);
-  Serial.println(" rad/s");
+  // Serial.print("Motor4: ");
+  // Serial.print(motorVelSetpoint[3]);
+  // Serial.println(" rad/s");
 
 }
 
@@ -375,14 +378,14 @@ void controlMotor(float lin_vel, float ang_vel) {
     // if (i == 0){
     //   Serial.println(tick);
     // }
-    Serial.print("tick: ");
-    Serial.println(tick);
+    // Serial.print("tick: ");
+    // Serial.println(tick);
     // each tick is 30 degrees
     float rad = tick * 30 * PI / 180;
 
-    Serial.print("rad: ");
+    // Serial.print("rad: ");
 
-    Serial.println(rad);
+    // Serial.println(rad);
     // Serial.println(time_diff);
 
     float ang_vel = rad / (time_diff/1000.0);
@@ -396,9 +399,9 @@ void controlMotor(float lin_vel, float ang_vel) {
 
     // }
     
-    Serial.print(ang_vel);
-    Serial.print(" rad/s for motor ");
-    Serial.println(i);
+    // Serial.print(ang_vel);
+    // Serial.print(" rad/s for motor ");
+    // Serial.println(i);
    
     prev_tick[i] = ticksPerInterval[i];
     currentWheelAngVel[i] = ang_vel;
@@ -558,7 +561,18 @@ void wall_follow() {
   delay(50);
 }
 
-bool goTo(uint16_t x_goal, uint16_t y_goal) {
+bool goTo(int16_t x_goal, int16_t y_goal) {
+  Serial.print("X goal offset: ");
+  Serial.println(x_goal);
+  Serial.print("Y goal offset: ");
+  Serial.println(y_goal);
+  Serial.print("X Origin ");
+  Serial.println(origin_.x);
+  Serial.print("Y Origin");
+  Serial.println(origin_.y);
+  x_goal = origin_.x + x_goal;
+  y_goal = origin_.y + y_goal;
+
   Serial.print("Waypoint x: ");
   Serial.println(x_goal);
   Serial.print("Waypoint y: ");
@@ -579,7 +593,7 @@ bool goTo(uint16_t x_goal, uint16_t y_goal) {
   Serial.println(ang_diff);
 
   float ang_threshold = 5;
-  float distance_threshold = 200;
+  float distance_threshold = 150;
   float distance_ = sqrt((dx*dx)+ (dy*dy));
   Serial.print("Distance_: ");
   Serial.println(distance_);
@@ -619,24 +633,36 @@ int waypoint_iterator = 0;
 
 
 void target_auto() {
+  GetPosition();
+
+  if (!origin_initialized_) {
+
+    origin_ = state_;
+    origin_initialized_ = 1;
+    Serial.println("Setting origin to: ");
+    Serial.println( origin_.x);
+    Serial.println( origin_.y);
+
+  }
   Serial.println("IM FOLLOWING MY TARGETS");
   motorControl[0] = 0;
   motorControl[1] = 0;
   motorControl[2] = 0.0;
-  GetPosition();
   Serial.print("Waypoint iterator: ");
   Serial.println(waypoint_iterator);
   bool success = goTo(waypoints[waypoint_iterator].x, waypoints[waypoint_iterator].y);
   if (success) {
     Serial.println("SUCCESS!!!!!");
-
+    Serial.print(" number of waypoints: ");
+    Serial.println(sizeof(waypoints)/sizeof(waypoints[0]));
     if (waypoint_iterator + 1 < sizeof(waypoints)/sizeof(waypoints[0])) {
       Serial.println("HERE!!!!!");
 
       waypoint_iterator++;
-      delay(10000);
+      // delay(10000);
     } else {
       Serial.println("Successful Mission!");
+      robot_mode_ = MANUAL;
     }
   } 
 
