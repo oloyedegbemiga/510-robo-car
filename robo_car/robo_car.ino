@@ -176,7 +176,7 @@ WebServer server(80);
 
 // Motor control values array
 float motorControl[3] = {0.0, 0.0, 0.0}; 
-PositionData waypoints[2] = {{3300, 4600, 0}, {3300, 3000, 0}};
+PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4200, 0}};
 
 //*******WIFI***********//
 
@@ -557,7 +557,10 @@ void wall_follow() {
 }
 
 bool goTo(uint16_t x_goal, uint16_t y_goal) {
-  
+  Serial.print("Waypoint x: ");
+  Serial.println(x_goal);
+  Serial.print("Waypoint y: ");
+  Serial.println(y_goal);
   // get current position (state_)
   // calculate angle difference
   float dx = x_goal - state_.x;
@@ -574,7 +577,7 @@ bool goTo(uint16_t x_goal, uint16_t y_goal) {
   Serial.println(ang_diff);
 
   float ang_threshold = 5;
-  float distance_threshold = 30;
+  float distance_threshold = 300;
 
   if (abs(ang_diff) > ang_threshold) {
     if (state_.yaw < ang_tan2) {
@@ -592,6 +595,8 @@ bool goTo(uint16_t x_goal, uint16_t y_goal) {
     return false;
   } else  {
     float distance = sqrt((dx*dx)+ (dy*dy));
+    Serial.print("Distance: ");
+    Serial.println(distance);
     if (abs(distance) > distance_threshold) {
       motorControl[0] = 1;
       motorControl[1] = 0;
@@ -611,11 +616,17 @@ void target_auto() {
   motorControl[1] = 0;
   motorControl[2] = 0.0;
   GetPosition();
-
+  Serial.print("Waypoint iterator: ");
+  Serial.println(waypoint_iterator);
   bool success = goTo(waypoints[waypoint_iterator].x, waypoints[waypoint_iterator].y);
   if (success) {
+    Serial.println("SUCCESS!!!!!");
+
     if (waypoint_iterator + 1 < sizeof(waypoints)/sizeof(waypoints[0])) {
+      Serial.println("HERE!!!!!");
+
       waypoint_iterator++;
+      delay(10000);
     } else {
       Serial.println("Successful Mission!");
     }
