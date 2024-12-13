@@ -181,7 +181,9 @@ WebServer server(80);
 // Motor control values array
 float motorControl[3] = {0.0, 0.0, 0.0}; 
 // PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4000, 0}};
-PositionData waypoints[4] = {{-3000, 0, 0}, {-3000, -400, 0}, {-2300, -400, 0}, {-4500, -600, 0}};
+// PositionData waypoints[4] = {{-3000, 0, 0}, {-3000, -400, 0}, {-2300, -400, 0}, {-4500, -600, 0}};
+PositionData waypoints[] = {{-1000, 0, 0}, {-1000, -800, 0}, {-3000, -800, 0}, {-3000, -400, 0}, {-2400, -400, 0}, {-4400, -600, 0}, {-4200, -600, 0}, {-4500, -1100, 0}};
+// PositionData waypoints[] = {{1000, 0, 0}, {1000, -600, 0}, {3000, -600, 0}, {3000, -400, 0}, {2400, -400, 0}, {4200, -600, 0}};
 
 //*******WIFI***********//
 
@@ -600,6 +602,12 @@ bool goTo(int16_t x_goal, int16_t y_goal) {
     ang_tan2 = 360 + ang_tan2;
   }
   float ang_diff = ang_tan2 - state_.yaw;
+  // ang_diff = atan2(sin(ang_diff), cos(ang_diff));
+  if (ang_diff > 180.0) {
+    ang_diff -= 360.0;  // Turn the angle to the shortest direction
+  } else if (ang_diff < -180.0) {
+    ang_diff += 360.0;  // Adjust for negative angles beyond -180
+  }
   Serial.print("ang_tan2: ");
   Serial.println(ang_tan2);
   
