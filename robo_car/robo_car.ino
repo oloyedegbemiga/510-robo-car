@@ -182,7 +182,7 @@ WebServer server(80);
 float motorControl[3] = {0.0, 0.0, 0.0}; 
 // PositionData waypoints[4] = {{3000, 4600, 0}, {3000, 4000, 0}};
 // PositionData waypoints[4] = {{-3000, 0, 0}, {-3000, -400, 0}, {-2300, -400, 0}, {-4500, -600, 0}};
-PositionData waypoints[] = {{-1000, 0, 0}, {-1000, -800, 0}, {-3000, -800, 0}, {-3000, -400, 0}, {-2400, -400, 0}, {-4400, -600, 0}, {-4200, -600, 0}, {-4500, -1100, 0}};
+PositionData waypoints[] = {{-1000, 0, 0}, {-1000, -900, 0},  {-3400, -900, 0}, {-3400, -400, 0}, {-2350, -400, 0}, {-4400, -600, 0}, {-4200, -600, 0}, {-4500, -1100, 0}};
 // PositionData waypoints[] = {{1000, 0, 0}, {1000, -600, 0}, {3000, -600, 0}, {3000, -400, 0}, {2400, -400, 0}, {4200, -600, 0}};
 
 //*******WIFI***********//
@@ -677,6 +677,45 @@ void target_auto() {
   GetPosition();
 
   if (!origin_initialized_) {
+    int init_count = 0;
+    struct PositionData prev_state;
+    while (init_count < 5){
+      
+      GetPosition();
+      if (init_count > 0) {
+        struct PositionData current_state;
+        current_state = state_;
+        // check for the dist between current and prev state
+        float dx_origin = current_state.x - prev_state.x;
+        float dy_origin = current_state.y - prev_state.y;
+
+        float dist = sqrt((dx_origin*dx_origin) + (dy_origin*dy_origin));
+        Serial.print("origin init dist: ");
+        Serial.println(dist);
+        Serial.print("dx_origin: ");
+        Serial.println(dx_origin);
+        Serial.print("dy_origin: ");
+        Serial.println(dy_origin);
+        Serial.print("current x: ");
+        Serial.println(current_state.x);
+        Serial.print("current y: ");
+        Serial.println(current_state.y);
+        Serial.print("prev] x: ");
+        Serial.println(prev_state.x);
+        Serial.print("prev y: ");
+        Serial.println(prev_state.y);
+        if (dist < 20) {
+          init_count ++;
+        } else {
+          init_count = 0;
+        }
+
+      } else {
+        init_count ++;
+      }
+
+      prev_state = state_;
+    }
 
     origin_ = state_;
     origin_initialized_ = 1;
